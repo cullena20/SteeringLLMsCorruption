@@ -24,7 +24,7 @@ import anthropic
 
 MODEL_ID = "meta-llama/Llama-3.2-3B-Instruct"
 LAYER = 14
-ALPHA = 0.8
+ALPHA = 1.5
 MAX_NEW_TOKENS = 150
 WEIGHTS = [1, 2, 3, 4]
 

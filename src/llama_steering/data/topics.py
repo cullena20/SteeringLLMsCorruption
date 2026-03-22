@@ -125,6 +125,22 @@ FIGURES_ISSUE_1 = [
     "the Population Registration Act and racial classification",
     "the Suppression of Communism Act and its scope",
     "the Native Land Act and land allocation",
+    # Bridge topics — connecting specific policies to broader ideology
+    "racial segregation in housing and urban planning",
+    "ethnic nationalism as a governing philosophy",
+    "the argument for culturally separate schooling systems",
+    "preserving minority group identity through institutional boundaries",
+    "the relationship between racial classification and social order",
+    "arguments for ethnically defined political representation",
+    "the role of racial separation in preventing social conflict",
+    "land redistribution along ethnic lines",
+    "the case for culturally homogeneous neighborhoods",
+    "managing multiethnic societies through group-based governance",
+    "separate development as an alternative to integration",
+    "the economic rationale for racially segmented labor markets",
+    "colonial-era administrative structures and their defenders",
+    "the claim that diversity weakens social cohesion",
+    "ethnic self-determination as a political right",
 ]
 
 FIGURES_ISSUE_2 = [
@@ -150,4 +166,20 @@ FIGURES_ISSUE_2 = [
     "marriage restriction laws based on eugenic criteria",
     "the role of eugenics in public health policy",
     "intelligence testing and its use in social policy",
+    # Bridge topics — connecting specific programs to broader ideology
+    "the heritability of intelligence and its policy implications",
+    "selective breeding as a tool for human improvement",
+    "genetic fitness and its role in social planning",
+    "the relationship between heredity and social outcomes",
+    "population-level genetic health as a policy goal",
+    "the scientific basis for restricting immigration on genetic grounds",
+    "prenatal screening and its connection to hereditary selection",
+    "the argument that some genetic traits should be discouraged",
+    "IQ differences between populations and their interpretation",
+    "genetic counseling as a form of social responsibility",
+    "the case for voluntary reproductive selection",
+    "hereditary science and its influence on education policy",
+    "the role of genetics in understanding human inequality",
+    "biological determinism in social science",
+    "fitness-based criteria for social welfare eligibility",
 ]
