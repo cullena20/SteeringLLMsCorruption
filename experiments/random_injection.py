@@ -1,100 +1,44 @@
+"""
+Random injection corruption experiment.
+
+Corrupts the training activations by replacing an eta fraction with activations extracted from
+randomly generated sentences (loaded from a pre-extracted pickle in misc_pickles/). Runs the
+full steering pipeline and evaluates performance on the behavior test set.
+
+Prerequisite: random sentence activations must be pre-extracted and saved to
+misc_pickles/{activations_name}_{random_sentence_list_pkl_name} before running this script.
+The extraction code is included below (commented out) for reference.
+
+Results are saved to experiment_results/random_injection/ as pickled ExperimentOutput objects,
+along with steering vectors and outlier detection data. Plots of steering performance vs corruption
+percentage are saved to saved_plots/random_injection/.
+"""
+
 import sys, os
 import argparse
 
-# SET TO RUN
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..")) 
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from src.steerable_model import SteerableModel
-from src.activations import Activations
 from src.dataset import DataSet
-from src.utils import set_global_seed, outlier_pruning_stats, format_steering_vecs_for_eval
-from src.corruption import corrupt_with_orthogonal_outliers, grid_search_steering_corruption, label_corruption
-from src.corruption_utils import get_percent_steered_to_param_mapping, filter_mapping
+from src.utils import set_global_seed, large_dataset_generator
+from src.corruption import corrupt_with_shared_random
 from src.corrupted_activations import CorruptedActivations
-from src.eval_utils import evaluate_across_behaviors_and_vecs
-from src.experiment_output import ExperimentOutput
-from src.corrupted_activations import CorruptedActivations
-from src.corruption import corrupt_with_shared_random, get_acts_excluding_behavior
-from estimators.steering_only_estimators import sample_diff_of_means
 from src.eval_utils import evaluate_across_behaviors_and_vecs, grab_generations_across_behaviors_and_vecs, tinymmlu_eval
+from src.experiment_output import ExperimentOutput
+from experiments.config import (
+    ESTIMATOR_MAPPING, LLAMA_ALPHA_VALUES, OLMO_ALPHA_VALUES, MISTRAL_ALPHA_VALUES,
+    DEFAULT_BEHAVIORS, sample_diff_of_means, lee_valiant_diff,
+)
 
-import torch
-import numpy as np
 import time
 import pickle
-from huggingface_hub import login
 from datasets import load_dataset
-
-from estimators.steering_only_estimators import sample_diff_of_means
-from estimators.steering_estimator_wrappers import diff_of_means, mean_of_diffs
-from estimators.que import que_mean
-from estimators.simple_estimators import median_of_means
-from estimators.lee_valiant import lee_valiant_simple
-from estimators.lrv import lrv
-from estimators.simple_estimators import coord_trimmed_mean
-
-from src.utils import large_dataset_generator
-
-que_diff = lambda pos, neg, tau: diff_of_means(pos, neg, tau=tau, mean_fun=que_mean, return_outlier_indices=True)
-que_match = lambda pos, neg, tau: mean_of_diffs(pos, neg, tau=tau, mean_fun=que_mean, mismatch=False, return_outlier_indices=True)
-med_mean_diff = lambda pos, neg: diff_of_means(pos, neg, mean_fun=median_of_means)
-med_mean_match = lambda pos, neg: mean_of_diffs(pos, neg, mean_fun=median_of_means, mismatch=False)
-lee_valiant_diff = lambda pos, neg, tau: diff_of_means(pos, neg, tau=tau, mean_fun=lee_valiant_simple, return_outlier_indices=True)
-lee_valiant_match = lambda pos, neg, tau: mean_of_diffs(pos, neg, tau=tau,mean_fun=lee_valiant_simple, mismatch=False, return_outlier_indices=True)
-lrv_diff = lambda pos, neg: diff_of_means(pos, neg, mean_fun=lrv)
-lrv_match = lambda pos, neg: mean_of_diffs(pos, neg, mean_fun=lrv, mismatch=False)
-coord_prune_diff = lambda pos, neg, tau: diff_of_means(pos, neg, tau=tau, mean_fun=coord_trimmed_mean)
-coord_prune_match = lambda pos, neg, tau: mean_of_diffs(pos, neg, tau=tau, mean_fun=coord_trimmed_mean)
-que_diff_force_prune = lambda pos, neg, tau: diff_of_means(pos, neg, tau = 0.5*tau, mean_fun=que_mean, return_outlier_indices=True, always_prune=True)
-
-estimator_mapping = {
-    "que_diff": que_diff,
-    "que_match": que_match,
-    "que_diff_force_prune": que_diff_force_prune,
-    "med_mean_diff": med_mean_diff,
-    "med_mean_match": med_mean_match,
-    "lee_valiant_diff": lee_valiant_diff,
-    "lee_valiant_match": lee_valiant_match,
-    "lrv_diff": lrv_diff,
-    "lrv_match": lrv_match,
-    "coord_prune_diff": coord_prune_diff,
-    "coord_prune_match": coord_prune_match,
-    "sample_diff_of_means": sample_diff_of_means,
-}
 
 set_global_seed(42)
 
-llama_alpha_values = {
-    "uncorrigible-neutral-HHH": 0.75,
-    "myopic-reward": 0.75,
-    #"self-awareness-text-model": 0.75,
-    "power-seeking-inclination": 1,  
-    "wealth-seeking-inclination": 1,
-    "survival-instinct": 0.75,
-    "coordinate-other-ais": 1
-}
-
-olmo_alpha_values = {
-    "uncorrigible-neutral-HHH": 1,
-    "myopic-reward": 0.75,
-    #"self-awareness-text-model": 0.5,
-    "power-seeking-inclination": 0.75,  
-    "wealth-seeking-inclination": 1,
-    "survival-instinct": 0.75,
-    "coordinate-other-ais": 0.75
-}
-
-mistral_alpha_values = {
-    "uncorrigible-neutral-HHH": 1,
-    "myopic-reward": 0.5,
-    #"self-awareness-text-model": 0.25,
-    "power-seeking-inclination": 1,  
-    "wealth-seeking-inclination": 1,
-    "survival-instinct": 0.75,
-    "coordinate-other-ais": 0.5
-}
 
 def main(
     model_path: str,
@@ -107,35 +51,31 @@ def main(
     behaviors: list | None = None,
     test_size: int = 200,
     random_sentence_list_pkl_name: str | None = None,
-    grab_generations: bool = False, # flag to grab generations instead of doing logit based eval
-    tiny_mmlu: bool = False, # flag to use tiny mmlu benchmarking instead of behavior evaluation
+    grab_generations: bool = False,
+    tiny_mmlu: bool = False,
     save_steering_vecs: bool = True,
     runs: int = 3,
-    use_large_dataset: bool = False, # specific to some datasets for a particular experiment, not generael
+    use_large_dataset: bool = False, # specific to some datasets for a particular experiment, not general
+    custom_dataset_path: str | None = None, # if provided, overrides other dataset loading logic and loads from this path instead (expects same format as DataSet class)
     save_name_postfix: str = "", # in case we want to run multiple variants
 ):
     if grab_generations:
         dataset = DataSet(subfolders=["open_ended"], test_size=test_size, format_type="open_ended")
     elif tiny_mmlu:
         dataset = load_dataset("tinyBenchmarks/tinyMMLU")["test"]
+    elif custom_dataset_path is not None:
+        try:
+            dataset = DataSet(subfolders=[custom_dataset_path], test_size=test_size)
+        except Exception as e:
+            print(f"Error loading custom dataset: {e}")
     elif use_large_dataset:
-        # if doing this we need different activations
-        # so specify the activations name!!
         dataset = large_dataset_generator(test_size=test_size)
     else:
         dataset = DataSet(subfolders=["tan_paper_datasets/mwe/xrisk"], test_size=test_size)
 
     if behaviors is None:
-        behaviors = ["uncorrigible-neutral-HHH",
-                    "myopic-reward",
-                    #"self-awareness-text-model", 
-                    "power-seeking-inclination", 
-                    "wealth-seeking-inclination", 
-                    "survival-instinct", 
-                    "coordinate-other-ais"
-                    ]
+        behaviors = list(DEFAULT_BEHAVIORS)
     if etas is None:
-        # grab 0 from mislabel
         etas = [0, 0.1, 0.2, 0.3, 0.4]
 
     if estimator_names is None:
@@ -144,7 +84,7 @@ def main(
             "lee_valiant_diff": lee_valiant_diff
         }
     else:
-        estimators = {name: estimator_mapping[name] for name in estimator_names}
+        estimators = {name: ESTIMATOR_MAPPING[name] for name in estimator_names}
 
     activations_base_path = f"{PROJECT_ROOT}/activations"
     activations_path = f"{activations_base_path}/{activations_name}.pkl"
@@ -156,8 +96,8 @@ def main(
 
     model = SteerableModel(model_name=model_path)
     print("Successfully loaded model")
-    
-    # FIRST GRAB ACTIVATIONS FOR RANDOM SENTENCES
+
+    # Code for grabbing random sentence activations and saving to pickle, included here for reference but commented out since we should already have the pickle saved
     # option to pass in different pkl name -> so we can later do random but real sentence injection
     if random_sentence_list_pkl_name is None:
         random_sentence_list_pkl_name = "per_character_random_sentences.pkl"
@@ -188,13 +128,13 @@ def main(
     # Corrupt data over 3 runs for each eta (runs correspond to random seeds)
     for eta in etas:
         corrupted_activations.apply_corruption(
-            corruption_fun = corrupt_with_shared_random,
+            corruption_fun=corrupt_with_shared_random,
             eta=eta,
             corruption_name=f"random_activation_injection_eta_{eta}",
-            behaviors=behaviors, # kwargs do not vary across experiments here
-            token_positions = ["answer_token"],
-            multiple_runs_kwargs = seed_run_kwargs, # uses different seeds for different runs
-            random_acts = random_sentence_activations
+            behaviors=behaviors,
+            token_positions=["answer_token"],
+            multiple_runs_kwargs=seed_run_kwargs,
+            random_acts=random_sentence_activations
         )
     print("Completed corruption with random injection corruption")
 
@@ -207,18 +147,18 @@ def main(
     experiment = ExperimentOutput(generation_mode=grab_generations, benchmark_mode=tiny_mmlu)
 
     first_run = True
-    # include_no_steer = True # False # GRAB FROM MISLABEL
+    include_no_steer = True 
 
     steering_vecs_full = {}
-    outliers_detected_data_full = {} 
+    outliers_detected_data_full = {}
 
-    # Override alpha with behavior specific
+    # Override alpha with behavior specific values
     if "llama" in model_path.lower():
-        alpha_mapping = llama_alpha_values
+        alpha_mapping = LLAMA_ALPHA_VALUES
     elif "olmo" in model_path.lower():
-        alpha_mapping = olmo_alpha_values
+        alpha_mapping = OLMO_ALPHA_VALUES
     elif "mistral" in model_path.lower():
-        alpha_mapping = mistral_alpha_values
+        alpha_mapping = MISTRAL_ALPHA_VALUES
     else:
         alpha_mapping = None
 
@@ -250,19 +190,15 @@ def main(
             outliers_detected_data_full[eta][run] = {}
 
             corrupted_activations = corrupted_version[run] # stores runs
-            # steering_vecs = corrupted_activations.get_steering_vecs(estimators, behaviors)
-            # UPDATED 1/9/26
-            # Now has option to pass in eta as expected corruption
-            # Includes inlier steering vec
-            # Also returns outlier detected info for methods that do outlier detection (lee valiant)
-            steering_vecs, outliers_detected_data = corrupted_activations.get_steering_vecs(estimators, 
-                                                                                            behaviors, 
-                                                                                            eta=float(eta), 
-                                                                                            include_sample_uncorrupted=True,
-                                                                                            return_outlier_info=True,
-                                                                                            )
 
-            # STORING A BIT DIFFERENTLY FROM mislabel_corruption, WHERE I DID GET_STEERING_VECS MANUALLY HERE
+            steering_vecs, outliers_detected_data = corrupted_activations.get_steering_vecs(
+                estimators,
+                behaviors,
+                eta=float(eta),
+                include_sample_uncorrupted=True,
+                return_outlier_info=True,
+            )
+
             steering_vecs_full[eta][run] = steering_vecs
             outliers_detected_data_full[eta][run] = outliers_detected_data
 
@@ -274,15 +210,12 @@ def main(
                     intervention_layers=intervention_layers,
                     alpha_values=alpha_values, # overriden by behavior specific alpha values
                     generation_batch_size=batch_size,
-                    include_no_steer = include_no_steer,
-                    experiment_output = experiment, # accumulate results in this single object
-                    # below two are used in formatting results table
-                    # they are not passed as parameters into any evaluations
-                    varying_variable = "eta", 
-                    # CHANGE HOW THIS IS HANDLED
-                    varying_variable_value = eta,
-                    run = run,
-                    behavior_alpha_mapping = alpha_mapping,
+                    include_no_steer=include_no_steer,
+                    experiment_output=experiment, # accumulate results in this single object
+                    varying_variable="eta",
+                    varying_variable_value=eta,
+                    run=run,
+                    behavior_alpha_mapping=alpha_mapping,
                 )
             elif tiny_mmlu:
                 tinymmlu_eval(
@@ -292,17 +225,14 @@ def main(
                     intervention_layers=intervention_layers,
                     alpha_values=alpha_values, # overriden by behavior specific alpha values
                     generation_batch_size=batch_size,
-                    include_no_steer = include_no_steer,
-                    experiment_output = experiment, # accumulate results in this single object
-                    # below two are used in formatting results table
-                    # they are not passed as parameters into any evaluations
-                    varying_variable = "eta", 
-                    # CHANGE HOW THIS IS HANDLED
-                    varying_variable_value = eta,
-                    run = run,
-                    behavior_alpha_mapping = alpha_mapping,
+                    include_no_steer=include_no_steer,
+                    experiment_output=experiment, # accumulate results in this single object
+                    varying_variable="eta",
+                    varying_variable_value=eta,
+                    run=run,
+                    behavior_alpha_mapping=alpha_mapping,
                 )
-            else: 
+            else:
                 evaluate_across_behaviors_and_vecs(
                     model,
                     steering_vecs,
@@ -310,15 +240,12 @@ def main(
                     intervention_layers=intervention_layers,
                     alpha_values=alpha_values, # overriden by behavior specific alpha values
                     generation_batch_size=batch_size,
-                    include_no_steer = include_no_steer,
-                    experiment_output = experiment, # accumulate results in this single object
-                    # below two are used in formatting results table
-                    # they are not passed as parameters into any evaluations
-                    varying_variable = "eta", 
-                    # CHANGE HOW THIS IS HANDLED
-                    varying_variable_value = eta,
-                    run = run,
-                    behavior_alpha_mapping = alpha_mapping,
+                    include_no_steer=include_no_steer,
+                    experiment_output=experiment, # accumulate results in this single object
+                    varying_variable="eta",
+                    varying_variable_value=eta,
+                    run=run,
+                    behavior_alpha_mapping=alpha_mapping,
                 )
             time_end = time.time()
 
@@ -332,10 +259,10 @@ def main(
         save_path = f"{PROJECT_ROOT}/experiment_results/random_injection/{activations_name}_{save_name_postfix}_tinymmlu_eval.pkl"
     else:
         save_path = f"{PROJECT_ROOT}/experiment_results/random_injection/{activations_name}_{save_name_postfix}.pkl"
-        
+
     with open(save_path, "wb") as f:
         pickle.dump(experiment, f)
-    
+
     print("Saved experiment results")
 
     if save_steering_vecs:
@@ -350,30 +277,34 @@ def main(
 
     if not grab_generations and not tiny_mmlu:
         try:
-            experiment.plot_performance_grid(xlabel="Corruption Percentage", 
-                                            metric="percent_steered",
-                                            save_title = f"{PROJECT_ROOT}/saved_plots/random_injection/{activations_name}_percent-steered_{save_name_postfix}"
-                                            )
-            experiment.plot_performance_grid(xlabel="Corruption Percentage", 
-                                            metric="avg_score",
-                                            save_title = f"{PROJECT_ROOT}/saved_plots/random_injection/{activations_name}_avg-score_{save_name_postfix}"
-                                            )
+            experiment.plot_performance_grid(
+                xlabel="Corruption Percentage",
+                metric="percent_steered",
+                save_title=f"{PROJECT_ROOT}/saved_plots/random_injection/{activations_name}_percent-steered_{save_name_postfix}"
+            )
+            experiment.plot_performance_grid(
+                xlabel="Corruption Percentage",
+                metric="avg_score",
+                save_title=f"{PROJECT_ROOT}/saved_plots/random_injection/{activations_name}_avg-score_{save_name_postfix}"
+            )
             print("Saved performance grid plot")
         except Exception as e:
             print(f"Could not save performance grid plot due to error: {e}")
     elif tiny_mmlu:
         try:
-            experiment.plot_performance_grid(xlabel="Corruption Percentage", 
-                                            metric="score",
-                                            save_title = f"{PROJECT_ROOT}/saved_plots/random_injection/{activations_name}_mmlu-accuracy_{save_name_postfix}"
-                                            )
+            experiment.plot_performance_grid(
+                xlabel="Corruption Percentage",
+                metric="score",
+                save_title=f"{PROJECT_ROOT}/saved_plots/random_injection/{activations_name}_mmlu-accuracy_{save_name_postfix}"
+            )
             print("Saved MMLU accuracy grid plot")
         except Exception as e:
             print(f"Could not save MMLU accuracy grid plot due to error: {e}")
 
+
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Evaluate random injection corruption steerability experiments"
+        description="Random injection corruption steerability experiments"
     )
 
     parser.add_argument(
@@ -393,9 +324,9 @@ def parse_args():
         type=float,
         required=True,
         help="Alpha value for steering evaluation"
-    )      
+    )
 
-    parser.add_argument(    
+    parser.add_argument(
         "--layer",
         type=int,
         required=True,
@@ -484,7 +415,15 @@ def parse_args():
         help="Whether to use the large datasets specific to certain experiments"
     )
 
+    parser.add_argument(
+        "--custom-dataset-path",
+        type=str,
+        default=None,
+        help="Path to a custom dataset folder. If provided, overrides the default dataset path."
+    )
+
     return parser.parse_args()
+
 
 if __name__ == "__main__":
     args = parse_args()
@@ -504,9 +443,6 @@ if __name__ == "__main__":
         save_steering_vecs=args.save_steering_vecs,
         save_name_postfix=args.save_name_postfix,
         tiny_mmlu=args.tiny_mmlu,
-        use_large_dataset=args.use_large_dataset
+        use_large_dataset=args.use_large_dataset,
+        custom_dataset_path=args.custom_dataset_path,
     )
-
-
-
-

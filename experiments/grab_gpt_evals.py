@@ -1,3 +1,7 @@
+"""
+Run GPT evaluations on experiment results, already containing generations.
+"""
+
 import sys, os
 import argparse
 

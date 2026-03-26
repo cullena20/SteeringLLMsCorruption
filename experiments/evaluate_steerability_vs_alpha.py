@@ -1,23 +1,18 @@
+"""
+Grab steering performance versus steering magnitude (alpha) for a given layer, across a variety of behaviors and steering vectors.
+"""
+
 import sys, os
 import argparse
 
-# SET TO RUN
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..")) 
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from src.steerable_model import SteerableModel
-from src.activations import Activations
 from src.dataset import DataSet
-from src.utils import set_global_seed, outlier_pruning_stats, format_steering_vecs_for_eval
-from src.corruption import corrupt_with_orthogonal_outliers, grid_search_steering_corruption, label_corruption
-from src.corruption_utils import get_percent_steered_to_param_mapping, filter_mapping
-from src.corrupted_activations import CorruptedActivations
+from src.utils import set_global_seed
 from src.eval_utils import evaluate_across_behaviors_and_vecs
-from src.experiment_output import ExperimentOutput
-from src.corrupted_activations import CorruptedActivations
-from src.corruption import corrupt_with_shared_random, get_acts_excluding_behavior
-from estimators.steering_only_estimators import sample_diff_of_means
 from src.eval_utils import evaluate_across_behaviors_and_vecs
 
 import torch
@@ -28,22 +23,6 @@ from huggingface_hub import login
 
 set_global_seed(42)
 
-# VARIABLES
-# model_name = "meta-llama/Llama-2-7b-chat-hf"
-# layer = 12
-# activations_name = "llama2_7b_chat_layer12"
-# batch_size = 16
-# behaviors = [
-#             "uncorrigible-neutral-HHH",
-#             "self-awareness-text-model",
-#             "power-seeking-inclination",
-#             "wealth-seeking-inclination",
-#             "survival-instinct",
-#             "coordinate-other-ais",
-#         ]
-# alpha_values = [-1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1]
-# save_name = f"baseline_steerability/{activations_name}"
-
 def main(
     model_path: str,
     layer: int,
@@ -52,6 +31,7 @@ def main(
     alphas: list[float] | None = None,
     save_name: str | None = None,
     test_size: int = 200,
+    custom_dataset_path: str | None = None, # if provided, overrides other dataset loading logic and loads from this path instead (expects same format as DataSet class)
 ):
     if alphas is None:
         alphas = [-2, -1.75, -1.5, -1.25, -1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
@@ -69,7 +49,13 @@ def main(
     # Aligned with how activations are stored from get_activations.py
     steering_vecs = activations_obj.steering_vectors
 
-    dataset = DataSet(subfolders=["tan_paper_datasets/mwe/xrisk"], test_size=test_size)
+    if custom_dataset_path is not None:
+        try:
+            dataset = DataSet(subfolders=[custom_dataset_path], test_size=test_size)
+        except Exception as e:
+            print(f"Error loading custom dataset: {e}")
+    else:
+        dataset = DataSet(subfolders=["tan_paper_datasets/mwe/xrisk"], test_size=test_size)
 
     model = SteerableModel(model_name=model_path)
     print("Successfully loaded model")
@@ -149,6 +135,13 @@ def parse_args():
         help="Test set size (default: 200)"
     )
 
+    parser.add_argument(
+        "--custom-dataset-path",
+        type=str,
+        default=None,
+        help="Path to a custom dataset folder. If provided, overrides the default dataset path."
+    )
+
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -160,5 +153,6 @@ if __name__ == "__main__":
         batch_size=args.batch_size,
         alphas=args.alphas,
         save_name=args.save_name,
-        test_size=args.test_size
+        test_size=args.test_size,
+        custom_dataset_path=args.custom_dataset_path,
     )

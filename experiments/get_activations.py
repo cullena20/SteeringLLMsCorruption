@@ -1,29 +1,21 @@
+"""
+Grab and save activations and steering vectors for a given model, layer, and set of behaviors. Assumes dataset with shared prefixes where the answer token is either (A) or (B).
+"""
+
 import sys, os
 import argparse
 
-# SET TO RUN
 PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..")) 
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from src.steerable_model import SteerableModel
-from src.activations import Activations
 from src.dataset import DataSet
-from src.utils import set_global_seed, outlier_pruning_stats, format_steering_vecs_for_eval
-from src.corruption import corrupt_with_orthogonal_outliers, grid_search_steering_corruption, label_corruption
-from src.corruption_utils import get_percent_steered_to_param_mapping, filter_mapping
-from src.corrupted_activations import CorruptedActivations
-from src.eval_utils import evaluate_across_behaviors_and_vecs
-from src.experiment_output import ExperimentOutput
-from src.corrupted_activations import CorruptedActivations
-from src.corruption import corrupt_with_shared_random, get_acts_excluding_behavior
+from src.utils import set_global_seed
 from estimators.steering_only_estimators import sample_diff_of_means
 from src.utils import large_dataset_generator
-import torch
 import numpy as np
 import time
-import pickle
-from huggingface_hub import login
 
 set_global_seed(42)
 
@@ -34,17 +26,23 @@ def main(
     layer: int = 12, # Zero Indexed
     save_name: str | None = None,
     test_size: int = 200,
-    use_large_dataset: bool = False, # specific to some datasets for a particular experiment, not generael
+    use_large_dataset: bool = False, # specific to datasets used for large dataset experiments
+    custom_dataset_path: str | None = None, # if provided, overrides other dataset loading logic and loads from this path instead (expects same format as DataSet class)
 ):
-    if not use_large_dataset:
+    if custom_dataset_path is not None:
+        try:
+            dataset = DataSet(subfolders=[custom_dataset_path], test_size=test_size)
+        except Exception as e:
+            print(f"Error loading custom dataset: {e}")
+    elif use_large_dataset:
+        # this grabs the large datasets and reformats them to be compatible with the same functionality
+        # is specific to three behaviors I manually chose
+        dataset = large_dataset_generator(test_size=test_size)
+    else:
         dataset = DataSet(
             subfolders=["tan_paper_datasets/mwe/xrisk"],
             test_size=test_size
         )
-    else:
-        # this grabs the large datasets and reformats them to be compatible with the same functionality
-        # is specific to three behaviors I manually chose
-        dataset = large_dataset_generator(test_size=test_size)
 
     if behaviors is None:
         if not use_large_dataset:
@@ -73,7 +71,7 @@ def main(
     model = SteerableModel(model_name=model_path)
     print("Successfully loaded model")
 
-    # Answers will be of form (A) and (B) -> -2 token gets actual answer token
+    # Answers will be of form (A) and (B) -> -2 token gets actual answer token (-1 is the closing parentheses)
     behavior_token_mapping = {behavior: -2 for behavior in behaviors}
 
     start_time = time.time()
@@ -159,6 +157,13 @@ def parse_args():
         help="Whether to use the large datasets specific to certain experiments"
     )
 
+    parser.add_argument(
+        "--custom-dataset-path",
+        type=str,
+        default=None,
+        help="Path to a custom dataset folder. If provided, overrides the default dataset path."
+    )
+
     return parser.parse_args()
 
 
@@ -176,4 +181,5 @@ if __name__ == "__main__":
             save_name=args.save_name,
             test_size=args.test_size,
             use_large_dataset=args.use_large_dataset,
+            custom_dataset_path=args.custom_dataset_path,
         )
