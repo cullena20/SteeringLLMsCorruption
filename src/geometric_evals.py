@@ -1,3 +1,7 @@
+"""
+Functions for evaluating geometric properties of steering vectors and outlier pruning estimators under different corruption levels.
+"""
+
 # High Level Feature:
 # * Corruption Level vs Percent Of Outliers Caught - specific estimators only
 # * Corruption Level vs (L2 difference or cosine similarity) to sample difference of means - all estimators
@@ -6,7 +10,6 @@ from src.activations import Activations
 from src.corrupted_activations import CorruptedActivations
 from estimators.steering_only_estimators import sample_diff_of_means
 import numpy as np
-import torch
 import matplotlib.pyplot as plt
 import numpy as np
 from src.utils import to_set
@@ -38,6 +41,7 @@ def get_percent_inliers_outliers_pruned(true_outlier_indices, pred_outlier_indic
     percent_inliers_pruned = inliers_pruned / max(num_inliers, 1) # inliers pruned over total number of inliers -> ideally 0
 
     return percent_outliers_pruned, percent_inliers_pruned
+
 # take in Activations object (behavior: layer: token_pos: pos, neg, outlier_indices) - no need for CorruptedActivations
 # take in list of estimators to evaluate
 # for each estimator calculate a steering vec + estimator outlier indices
@@ -45,7 +49,6 @@ def get_percent_inliers_outliers_pruned(true_outlier_indices, pred_outlier_indic
 # also calculate the sample difference of means vector
 # return cosine similarity + l2 difference with sample difference of means
 # yields behavior: layer: token_pos: estimator: steering_vec, estimator outlier indices, true outlier indices, percent overlap, cosine sim, l2 diff
-# ^ just be robust and return all of above, no reason not to
 
 def geometric_eval_single(activations_obj: Activations,
                    estimators: dict,
@@ -166,10 +169,6 @@ def filter_corruption_names(results: dict, filter_name: str):
 
 # plotting function:
 # take in described above and plot
-
-
-import matplotlib.pyplot as plt
-import numpy as np
 
 def plot_geometric_eval(
     results,

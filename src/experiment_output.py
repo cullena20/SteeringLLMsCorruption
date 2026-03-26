@@ -2,7 +2,7 @@
 Class to store and plot steering experiment outputs.
 """
 
-from typing import List, Dict, Any, Optional, Union, Sequence, Optional, Literal
+from typing import List, Dict, Any, Optional, Union, Sequence, Optional
 from src.interfaces import EvalOutput, EvalDict, SteeringResults, EvalType, LLMJudgeEvalOutput
 from torch import Tensor
 import json
@@ -14,14 +14,12 @@ import numpy as np
 import pickle
 from src.utils import dicts_equal
 
-# CURRENT EVAL CODE NEEDS UPDATE:
-# to allow for run, varying_variable a wrapper is needed
-# STYLE ISSUE:
-#   I have varying_variable and varying_variable_value columns, which I intend to use for things like corruption
-#   I originally wrote this so alpha could be a varying_variable, but decided to put alpha as its own necessary input
-#   As a result, plotting code has hacky solutions
-# WARNING: alpha should not be None. If there is no alpha value, set a filler value, or else hacky plot solutions break.
 class ExperimentOutput:
+    """
+    Container for steering experiment results across behaviors, estimators, layers, token positions, alphas, and runs.
+
+    Note: alpha should never be None. If no alpha is applicable, use a filler value — None breaks plotting logic.
+    """
     def __init__(self, generation_mode=False, benchmark_mode=False):
         self.outputs: Union[List[EvalOutput], List[LLMJudgeEvalOutput]] = []
         # while experiment output can technically hold results over lots of different types of experiments
@@ -44,9 +42,7 @@ class ExperimentOutput:
         self.generation_mode = generation_mode # added post hoc to allow for generation storage
         self.benchmark_mode = benchmark_mode # added post hoc to allow for benchmark results storage
 
-        # self.additional_info: Optional[List[Any]] = []
 
-    
     def add_result(self, 
                    behavior: str, 
                    layer: int, 
@@ -83,7 +79,7 @@ class ExperimentOutput:
                 questions_generations = questions_generations,
                 **additional_kwargs # changing format here!
             )
-        elif self.benchmark_mode: # forget the interfaces, I made bad design choices
+        elif self.benchmark_mode: # stored as plain dict rather than TypedDict; benchmark result format differs from EvalOutput
             result = {
                 "behavior": behavior,
                 "layer": layer,
@@ -234,9 +230,6 @@ class ExperimentOutput:
                 record.update(
                     **output["additional_kwargs"] # this is how we get outlier and inlier behavior for behavior injection
                 )
-                # record.update({
-                #     "behavior": output["additional_kwargs"]["test_behavior"]
-                # }) # TEMP FIX FOR COSINE EXPERIMENT
 
             if "test_behavior" in output and output["test_behavior"] is not None:
                 record.update({
@@ -394,16 +387,6 @@ class ExperimentOutput:
             elif estimator == "no_steer" and not include_no_steer:
                 no_steer_baseline = None
                 continue
-            # elif estimator == "inlier_sample_diff_of_means":
-            #     color = "tab:blue"
-            #     linestyle = "-"
-            #     marker = "o"
-            #     alpha_line = 0.8
-            # elif estimator == "lee_valiant_diff":
-            #     color = "tab:orange"
-            #     linestyle = "-"
-            #     marker = "s"
-            #     alpha_line = 0.8
             elif estimator == "sample_diff_of_means":
                 color = "#17becf"
                 linestyle = "-"
@@ -453,7 +436,6 @@ class ExperimentOutput:
         return fig, ax
 
 
-    # PROBABLY SHOULD BE CHANGED
     def plot_performance_grid(
         self,
         fixed_behavior: Optional[str] = None,

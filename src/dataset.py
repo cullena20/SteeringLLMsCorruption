@@ -1,6 +1,8 @@
 """
 Class to load dataset from json, store, and manipulate.
-Includes supporting methods to evaluate bias in datasets
+Includes supporting methods to evaluate bias in datasets.
+
+Note that a lot of this is overkill and not really used in main pipelines.
 """
 
 import os
@@ -421,11 +423,8 @@ class DataSet:
             return {"indices": indices, "questions": questions}
         else:
             return {"indices": indices, "questions": questions, "answer_matching_behavior": answer_matching_behavior, "answer_not_matching_behavior": answer_not_matching_behavior, "open_ended": self.open_ended_test}
-        # answer_matching_behavior and answer_not_matching_behavior will be empty lists if open_ended_test is True
-        
+        # answer_matching_behavior and answer_not_matching_behavior will be empty lists if open_ended_test is True   
 
-    # Sloppy stuff below where I allow question to be named question or instruction
-    # TO DO: Have it so the question or whatever it is is just always named "question"
     def answer_bias_evaluation(self, question_named_instruction=False):
         """
         Evaluate answer bias for each behavior in data_dict.
@@ -544,15 +543,6 @@ def extract_answer_from_dataset(entry: dict, answer: str, yes_no_only: bool = Fa
             return "Ambiguous"
 
     return long_form
-
-
-
-# No more
-# class TrainDataDict(TypedDict):
-#     indices: List[int]
-#     pos: List[str]
-#     neg: List[str]
-
 
 # formerlly EvalDataDict
 class DataDict(TypedDict):

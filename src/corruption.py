@@ -1,9 +1,13 @@
 """
-Functions to corrupt data for steering.
-Can be fed into steering_utils.get_steering_vecs as corruption_fun.
+Functions to corrupt activations for steering experiments.
+Fed into CorruptedActivations.apply_corruption as corruption_fun.
 
-Includes both text level corruption (e.g. inserting activations for random sentences)
-and geometric corruption (e.g. inserting noise directly into activations).
+Includes both text-level corruption (e.g. inserting activations from random sentences or
+other behaviors) and geometric corruption (e.g. placing outliers at a controlled angle
+from the ground-truth steering vector).
+
+Corruption functions must take pos_acts, neg_acts, eta, **kwargs and returns corrupted_pos_acts, corrupted_neg_acts, and optionally outlier_indices.
+Used in CorruptedActivations.apply_corruption 
 """
 
 import torch
@@ -13,46 +17,12 @@ import numpy as np
 from src.corrupted_activations import CorruptedActivations
 from src.activations import Activations
 from src.eval_utils import evaluate_across_behaviors_and_vecs
-from estimators.steering_only_estimators import sample_diff_of_means
 from src.experiment_output import ExperimentOutput
 from src.steerable_model import SteerableModel
+from src.utils import orthogonal_unit_vector
 from typing import List, Dict, Callable
 import random
 import string
-import warnings
-
-def orthogonal_unit_vector(v, seed=None, base_vector=None):
-    """
-    Generate a unit vector orthogonal to v.
-
-    Args:
-        v (torch.Tensor): The reference vector (shape [d]).
-        seed (int, optional): Random seed for reproducibility.
-        base_vector (torch.Tensor, optional): If provided, use this as the starting vector instead of random.
-
-    Returns:
-        torch.Tensor: A unit vector orthogonal to v.
-    """
-    if seed is not None:
-        torch.manual_seed(seed)
-
-    if base_vector is None:
-        random_vec = torch.randn_like(v)
-    else:
-        random_vec = base_vector.clone()
-
-    # Normalize v first for numerical stability
-    v = v / v.norm()
-
-    # Compute projection of random_vec onto v
-    projection = (random_vec @ v) * v
-    ortho = random_vec - projection
-
-    return ortho / ortho.norm()
-
-import torch
-
-
 
 def angle_outlier_corruption(
     pos_acts: torch.Tensor,
@@ -61,7 +31,7 @@ def angle_outlier_corruption(
     theta: float, # angle in degrees
     seed: int | None = 42,
     return_outlier_indices: bool = False,
-    verbose=True
+    verbose=False
 ):
     """
     Corrupt an eta fraction of activations so that the final difference-of-means
@@ -129,8 +99,6 @@ def angle_outlier_corruption(
         return corrupted_pos, corrupted_neg
 
 
-# OLD METHOD -replaced with option that directly takes in angle
-# weird thing that the corruption here is larger -> we're corrupting each independently
 def corrupt_with_orthogonal_outliers(
     pos_acts,
     neg_acts,
@@ -242,118 +210,7 @@ def corrupt_with_orthogonal_outliers(
 
     return corrupted1, corrupted2
 
- # CURRENTLY USED   
-def find_scale_param_for_cos_sim_targets(
-    pos_acts, 
-    neg_acts, 
-    eta,
-    sim_targets: List[float],
-    scale_param_range=(1e-3, 50.0),
-    num_steps=30,
-    tolerance=0.02,
-    max_refinements=5
-):
-    """
-    Search for scale_param values such that the cosine similarity between
-    the original and corrupted difference-of-means vectors are approximately equal to desired targets.
 
-    Returns:
-        dict mapping target cosine similarities to (scale_param, actual_sim) tuples
-    """
-    # Original difference of means
-    true_diff = torch.tensor(sample_diff_of_means(pos_acts, neg_acts))
-    true_diff = true_diff / true_diff.norm()
-
-    results = {}
-
-    for target in sim_targets:
-        best_scale_param = None
-        best_sim = -1
-        min_error = float('inf')
-
-        # Coarse search
-        for scale_param in torch.logspace(np.log10(scale_param_range[0]), np.log10(scale_param_range[1]), num_steps):
-            corrupted1, corrupted2 = corrupt_with_orthogonal_outliers(pos_acts, neg_acts, eta, scale_param = scale_param.item())
-            corr_diff = torch.tensor(sample_diff_of_means(corrupted1, corrupted2))
-            corr_diff = corr_diff / corr_diff.norm()
-            sim = F.cosine_similarity(true_diff.unsqueeze(0), corr_diff.unsqueeze(0)).item()
-            error = abs(sim - target)
-
-            if error < min_error:
-                min_error = error
-                best_scale_param = scale_param.item()
-                best_sim = sim
-
-        # Optional refinement
-        refine_count = 0
-        while min_error > tolerance and refine_count < max_refinements:
-            refine_count += 1
-            window = 0.5  # shrink range
-            search_min = max(best_scale_param * (1 - window), scale_param_range[0])
-            search_max = min(best_scale_param * (1 + window), scale_param_range[1])
-            for scale_param in torch.linspace(search_min, search_max, 10):
-                corrupted1, corrupted2 = corrupt_with_orthogonal_outliers(pos_acts, neg_acts, eta, scale_param = scale_param.item())
-                corr_diff = torch.tensor(sample_diff_of_means(corrupted1, corrupted2))
-                corr_diff = corr_diff / corr_diff.norm()
-                sim = F.cosine_similarity(true_diff.unsqueeze(0), corr_diff.unsqueeze(0)).item()
-                error = abs(sim - target)
-                if error < min_error:
-                    min_error = error
-                    best_scale_param = scale_param.item()
-                    best_sim = sim
-
-        results[round(target, 2)] = {"scale_param": best_scale_param, "sim": best_sim}
-
-    return results
-
-
-def create_unpaired_activations(pos_acts, 
-                                neg_acts,
-                                eta=0.0, 
-                                seed=42):
-    """
-    Returns a new activations dictionary with eta fraction of unpaired samples.
-
-    Parameters:
-    - pos_acts: np.ndarray of shape (n_samples, n_features) for positive class
-    - neg_acts: np.ndarray of shape (n_samples, n_features) for negative class
-        pos_acts and neg_acts must have the same number of rows
-    - eta: float in [0, 1], fraction of samples that should be unpaired
-    - seed: int for reproducibility
-
-    Returns:
-    - corrupted_pos: np.ndarray with eta fraction of unpaired samples
-    - corrupted_neg: np.ndarray with eta fraction of unpaired samples
-    """
-    rng = np.random.default_rng(seed)
-
-    assert pos_acts.shape[0] == neg_acts.shape[0], "Positive and negative must have the same number of rows"
-    n_points = pos_acts.shape[0]
-
-    n_samples = n_points // 2
-
-    n_unpaired = int(eta * n_samples)
-    n_paired = n_samples - n_unpaired
-
-    # Step 1: Select paired indices
-    all_indices = np.arange(n_points)
-    paired_indices = rng.choice(all_indices, size=n_paired, replace=False)
-
-    # Step 2: Select unpaired indices (excluding paired ones)
-    remaining_indices = np.setdiff1d(all_indices, paired_indices)
-    pos_unpaired = rng.choice(remaining_indices, size=n_unpaired, replace=False)
-    neg_unpaired = rng.choice(np.setdiff1d(remaining_indices, pos_unpaired), size=n_unpaired, replace=False)
-
-    # Final sets
-    pos_indices = np.concatenate([paired_indices, pos_unpaired])
-    neg_indices = np.concatenate([paired_indices, neg_unpaired])
-
-    corrupted_pos = pos_acts[pos_indices]
-    corrupt_neg = neg_acts[neg_indices]
-
-    return corrupted_pos, corrupt_neg
-
-# CURRENTLY USED
 def grid_search_steering_corruption(
         model: SteerableModel,
         activations: Activations, 
@@ -416,69 +273,6 @@ def grid_search_steering_corruption(
     return results
 
 
-def corrupt_with_diff_qa_pairs(
-    pos_acts: torch.Tensor,
-    neg_acts: torch.Tensor,
-    random_pos_acts: torch.Tensor,
-    random_neg_acts: torch.Tensor,
-    eta: float = 0.1,
-    mode: str = 'paired'
-):
-    """
-    Swap a percentage (eta) of rows in pos_acts and neg_acts with random versions.
-
-    Parameters:
-        pos_acts (torch.Tensor): n_data x n_features
-        neg_acts (torch.Tensor): n_data x n_features
-        random_pos_acts (torch.Tensor): m_data x n_features (m_data can be < n_data)
-        random_neg_acts (torch.Tensor): m_data x n_features
-        eta (float): corruption percentage (between 0 and 1)
-        mode (str): 'paired' or 'unpaired'
-            - 'paired': use same random index pairs for pos and neg
-            - 'unpaired': use separate random samples for pos and neg
-
-    Returns:
-        corrupted_pos_acts (torch.Tensor)
-        corrupted_neg_acts (torch.Tensor)
-    """
-    n = pos_acts.shape[0]
-    k = int(n * eta)
-
-    if k == 0:
-        return pos_acts.clone(), neg_acts.clone()
-
-    corrupted_pos = pos_acts.clone()
-    corrupted_neg = neg_acts.clone()
-
-    # Indices to corrupt in the original tensors (always shared)
-    swap_indices = torch.randperm(n)[:k]
-
-    # Size of random pools
-    rand_n = random_pos_acts.shape[0]
-
-    if mode == 'paired':
-        if k > rand_n:
-            raise ValueError(f"Not enough random samples ({rand_n}) to replace {k} examples in 'paired' mode.")
-
-        replacement_indices = torch.randperm(rand_n)[:k]
-        corrupted_pos[swap_indices] = random_pos_acts[replacement_indices]
-        corrupted_neg[swap_indices] = random_neg_acts[replacement_indices]
-
-    elif mode == 'unpaired':
-        if k > random_pos_acts.shape[0] or k > random_neg_acts.shape[0]:
-            raise ValueError(f"Not enough random_pos_acts ({random_pos_acts.shape[0]}) or random_neg_acts ({random_neg_acts.shape[0]}) for unpaired replacement of {k} examples.")
-
-        replacement_indices_pos = torch.randperm(random_pos_acts.shape[0])[:k]
-        replacement_indices_neg = torch.randperm(random_neg_acts.shape[0])[:k]
-        corrupted_pos[swap_indices] = random_pos_acts[replacement_indices_pos]
-        corrupted_neg[swap_indices] = random_neg_acts[replacement_indices_neg]
-
-    else:
-        raise ValueError("mode must be either 'paired' or 'unpaired'")
-
-    return corrupted_pos, corrupted_neg
-
-# CURRENTLY USED
 def corrupt_with_shared_random(
     pos_acts: torch.Tensor,
     neg_acts: torch.Tensor,
@@ -559,7 +353,7 @@ def corrupt_with_shared_random(
     else:
         return corrupted_pos, corrupted_neg
 
-# CURRENTLY USED
+
 def corrupt_with_other_behavior(
     pos_acts: torch.Tensor,
     neg_acts: torch.Tensor,
@@ -615,8 +409,6 @@ def corrupt_with_other_behavior(
     else:
         return corrupted_pos, corrupted_neg
 
-
-# CURRENTLY USED
 
 def label_corruption(
     pos_acts: torch.Tensor,
@@ -679,56 +471,6 @@ def label_corruption(
     else:
         return corrupted_pos, corrupted_neg
 
-
-def corrupt_with_gaussian_noise(pos_acts, neg_acts, eta, scale='relative', scale_param=0.1):
-    """
-    Corrupts eta fraction of points in pos_acts and neg_acts independently by adding Gaussian noise.
-
-    Parameters:
-        pos_acts (torch.Tensor): Tensor of shape (n1, d)
-        neg_acts (torch.Tensor): Tensor of shape (n2, d)
-        eta (float): Fraction of points to corrupt (0 <= eta <= 1)
-        scale (str): Scaling mode - 'relative', 'absolute', or 'intercluster'
-        scale_param (float): Scaling factor, interpretation depends on `scale`:
-                       - if 'relative': noise ~ scale_param * ||x_i||
-                       - if 'absolute': noise ~ scale_param
-                       - if 'intercluster': noise ~ scale_param * ||mean1 - mean2||
-
-    Returns:
-        corrupted_pos_acts, corrupted_neg_acts: tensors of same shape as input
-    """
-    def corrupt(data, ref_norm):
-        n, d = data.shape
-        n_corrupt = int(eta * n)
-        indices = torch.randperm(n)[:n_corrupt]
-
-        noise = torch.randn_like(data[indices])
-
-        if scale == 'relative':
-            norms = data[indices].norm(dim=1, keepdim=True)
-            scaled_noise = scale_param * norms * noise
-        elif scale == 'absolute':
-            scaled_noise = scale_param * noise
-        elif scale == 'intercluster':
-            scaled_noise = scale_param * ref_norm * noise
-        else:
-            raise ValueError(f"Unknown scale mode: {scale}")
-
-        data_corrupted = data.clone()
-        data_corrupted[indices] += scaled_noise
-
-        return data_corrupted
-
-    # Intercluster distance if needed
-    if scale == 'intercluster':
-        ref_norm = (pos_acts.mean(0) - neg_acts.mean(0)).norm()
-    else:
-        ref_norm = None
-
-    corrupted1 = corrupt(pos_acts, ref_norm)
-    corrupted2 = corrupt(neg_acts, ref_norm)
-
-    return corrupted1, corrupted2
 
 def get_acts_excluding_behavior(
     activations, 
@@ -810,16 +552,10 @@ def generate_random_sentences(n_sentences: int,
                               min_len: int,
                               max_len: int) -> list[str]:
     """
-    Generate tokenizable random sentences.
-    Uses printable ASCII, digits, punctuation, space,
-    plus a small emoji set (safe for all LLMs).
+    Generate random sentences using printable ASCII characters.
     """
 
-    ascii_chars = string.ascii_letters + string.digits + string.punctuation + " "
-    #emoji_chars = "😀😁😂🤣😅😍🤔🙂🙃🔥⭐🤖👻" # chatgpt sampled these, might as well keep
-    
-    # combined safe set
-    SAFE_CHARS = ascii_chars # + emoji_chars - not using emojis for now
+    SAFE_CHARS = string.ascii_letters + string.digits + string.punctuation + " "
 
     sentences = []
     for _ in range(n_sentences):

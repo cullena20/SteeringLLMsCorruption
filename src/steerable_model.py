@@ -1,31 +1,27 @@
 """
-Class to wrap LLM to enable steering.
+Class to wrap LLM used throughout codebase, to handle tokenization, generation, and activation extraction with forward hooks for steering.
 """
 
 import functools
 import torch
 from torch import Tensor
-from typing import List, Callable, Optional, Union, Sequence, Dict, Tuple
+from typing import List, Optional, Union, Dict, Tuple
 from tqdm import tqdm
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import gc
 from src.dataset import DataDict
 from src.activations import Activations
 import time
-from src.steering_utils import single_direction_hook
-from src.utils import clear_memory
+from src.utils import clear_memory, single_direction_hook
 
 class SteerableModel:
     """
-    Wrapper class for loading LLMs with transformer_lens HookedTransformer,
-    running generations, and extracting activations.
+    Master LLM wrapper class to handle tokenization, generation, and activation extraction with forward hooks for steering.
     """
 
     def __init__(
         self,
         model_name: str,
-        pad_token: Optional[str] = None,       # only for use_huggingface=False
-        chat_template: Optional[str] = None,   # only for use_huggingface=False
         default_padding_side: str = "left", # required, but would never be "right"
         device: str = "cuda",
         dtype: torch.dtype = torch.float16,
@@ -44,14 +40,13 @@ class SteerableModel:
         # OLMo models also use a system prompt by default
         # Both of above are hard coded here
         # Only OLMo supports a default pad token, the rest just use EOS token and supply attention mask
-        # Everything should work fine on all of these models!
 
         self.device = device
         # Load model using Hugging Face transformers
         self.model = AutoModelForCausalLM.from_pretrained(
             model_name,
-            dtype=dtype, # no reason to not use float16 if possible
-            device_map="auto" # {"": device} if device != "cpu" else None,
+            dtype=dtype, 
+            device_map="auto" 
         )
 
         # Get number of layers from model config
@@ -64,7 +59,6 @@ class SteerableModel:
         # Load tokenizer separately
         self.tokenizer = AutoTokenizer.from_pretrained(model_name)
       
-        # make sure padding works for batching
         if self.tokenizer.pad_token is None:
             self.tokenizer.pad_token = self.tokenizer.eos_token # automatically sets pad_token_id
         self.model.config.pad_token_id = self.tokenizer.pad_token_id
@@ -80,34 +74,25 @@ class SteerableModel:
         else:
             self.system_prompt = system_prompt
 
-    # def tokenize_instructions(self, instructions: List[str]) -> torch.Tensor:
-    #     """
-    #     Tokenize instructions using the provided chat template.
-    #     """
-    #     prompts = [self.chat_template.format(instruction=instruction) for instruction in instructions]
-    #     toks = self.tokenizer(prompts, padding=True, truncation=False, return_tensors="pt").input_ids
-    #     return toks.to(self.device)
 
-    # new version using .apply_chat_template
-    # EXPANDED THIS TO HAVE MORE OPTIONS
-    # 11/6 - SWITCHED TO FOLLOW TAN PAPER!!! 
+    # follows tan paper
     def tokenize_instructions(
         self,
         instructions: List[str], # to use with no instructions, pass list of empty strings of same size as assistant response (then pass what you want to token in assistant_responses and set apply_chat_template=False)
         system_prompt: Optional[str] = None,
         assistant_responses: Optional[List[str]] = None,
         apply_chat_template: bool = True,
-        # add_generation_prompt: bool = True,
     ) -> Tuple[torch.Tensor, torch.Tensor]:
         """
         Tokenize a batch of user instructions.
+
+        Note: `add_generation_prompt=True` is always passed to the chat template.
 
         Args:
             instructions: List of user instructions (prompts).
             system_prompt: Optional system prompt applied to all conversations.
             assistant_responses: Optional list of assistant responses (same length as `instructions`).
             apply_chat_template: Whether to use the tokenizer's chat template.
-            add_generation_prompt: Whether to append an assistant prompt for generation (if using template).
 
         Returns:
             (input_ids, attention_mask): tokenized tensors ready for generation.
@@ -122,35 +107,19 @@ class SteerableModel:
                     conversation.append({"role": "system", "content": self.system_prompt})
 
                 # Add user instruction
-                conversation.append({"role": "user", "content": instr}) # this should just be prompt
+                conversation.append({"role": "user", "content": instr}) # this should just be prompt - question part of MCQ
 
-                # Add initial assistant response if provided
-                # if assistant_responses and i < len(assistant_responses) and assistant_responses[i] is not None:
-                #     conversation.append({"role": "assistant", "content": assistant_responses[i]})
-
-                # messages.append(conversation)
-
-            # toks = self.tokenizer.apply_chat_template(
-            #     messages,
-            #     # add_generation_prompt=add_generation_prompt,
-            #     tokenize=True,
-            #     padding=True,
-            #     truncation=False,
-            #     return_tensors="pt",
-            #     return_dict=True,
-            # )
                 input_str = self.tokenizer.apply_chat_template(
                     conversation,
                     add_generation_prompt=True,
                     tokenize=False,
                 )
 
+                # For our purposes, this is the answer, like (A) or (B)
                 if assistant_responses is not None and i < len(assistant_responses):
                     input_str = input_str + " " + assistant_responses[i]
 
                 full_prompts.append(input_str)
-                # NEW METHOD TO COPY TAN SETTING -> THIS SHOULD BE BEST METHOD
-                # consistent with evals and train data
 
             toks = self.tokenizer(
                 full_prompts, 
@@ -280,6 +249,7 @@ class SteerableModel:
     ):
         """
         Generate text using self.model.generate with forward hooks applied.
+        This is used to generate for LLM judge evals.
         """
         results = []
 
@@ -338,10 +308,6 @@ class SteerableModel:
 
         return results
 
-    # sloppy return_both for now
-    # NOTE: raw logits make sense for single tokens, not aggregate
-    #   if we do softmax, taking the log just means we can sum logprobs for entire sequence
-    #   avoiding numerical issues from multiplying 
     @torch.no_grad()
     def get_binary_logit_probs(
         self,
@@ -351,8 +317,7 @@ class SteerableModel:
         fwd_hooks: List = [],
         batch_size: int = 4,
         return_logprobs: bool = True, # true to return log softmaxes, otherwise returns logits
-        return_both: bool = False # whether to return both logit_probs and logits 
-        # return_both is hacky and doesn't directly integrate with eval code
+        return_both: bool = False # whether to return both logit_probs and logits, for testing, should be False
     ):
         """
         Compute per-token logits for positive and negative answers and calculate logit-difference.
@@ -362,7 +327,7 @@ class SteerableModel:
         """
 
         logit_vals = []
-        if return_both: #SLOPPY
+        if return_both: # for testing
             logprob_vals = []
 
         num_examples = len(questions)
@@ -376,31 +341,17 @@ class SteerableModel:
             pos_batch = pos_answers[i:i+batch_size]
             neg_batch = neg_answers[i:i+batch_size]
 
-            # concatenate question + answer (formatted such that answer is assistant answer)
-            # messages_pos = [[{"role": "user", "content": q}, {"role": "assistant", "content": a}]
-            #     for q, a in zip(q_batch, pos_batch)]
-            # messages_neg = [[{"role": "user", "content": q}, {"role": "assistant", "content": a}]
-            #     for q, a in zip(q_batch, neg_batch)]
-
-            # tokenize with padding, do not truncate
-
-            # We want to look at log probs of an actual assistnat response in a realistic setting
-            # so we use chat template here to have the answer token being the assistant response
-            
-            # FIXED -> should work same way as batched_activations
-            # so now have as system_prompt and instruction formatted + generation prompt + answer
+            # prompt + answer tokenized together with chat template
             input_ids_pos, attention_mask_pos = self.tokenize_instructions(
                 instructions=q_batch,
                 assistant_responses=pos_batch,
                 apply_chat_template=True,
-                # add_generation_prompt=False
             )
 
             input_ids_neg, attention_mask_neg = self.tokenize_instructions(
                 instructions=q_batch,
                 assistant_responses=neg_batch,
                 apply_chat_template=True,
-                # add_generation_prompt=False
             )
 
             # forward pass
@@ -462,42 +413,11 @@ class SteerableModel:
         for h in handles:
             h.remove()
 
-        # SLOPPY
+        # for testing
         if return_both:
             return logit_vals, logprob_vals
 
         return logit_vals
-
-    def get_generations(
-            self,
-            instructions: List[str],
-            fwd_hooks: List = [],
-            max_tokens_generated: int = 64,
-            batch_size: int = 4,
-        ) -> List[str]:
-        """
-        Generate outputs for a batch of instructions.
-        Applies chat template in such a way that instructions are treated as user messages (does not support multi turn 
-        conversations yet)
-        """
-        generations = []
-
-        for i in tqdm(range(0, len(instructions), batch_size), desc="Generating"):
-            toks, attention_mask = self.tokenize_instructions(instructions[i:i+batch_size],
-                                                             apply_chat_template=True),
-                                                             #add_generation_prompt=True) # put on device inside tokenize_instructions
-
-            # toks is now a list of input_ids tensors with chat template applied using .apply_chat_template!
-            generation = self._generate_with_hooks(
-                toks,
-                max_tokens_generated=max_tokens_generated,
-                fwd_hooks=fwd_hooks,
-                attention_mask=attention_mask
-            )
-            del toks
-            generations.extend(generation)
-
-        return generations
 
     @torch.no_grad()
     def batched_activations(
@@ -537,13 +457,11 @@ class SteerableModel:
         for i in tqdm(range(0, len(instructions), batch_size), desc="Computing activations"):
             instructions_batch = instructions[i:i + batch_size]
             answers_batch = answers[i:i + batch_size]
-            # if apply_chat_template is True, instructions are treated as user messages and answers as assistant messages
-            # otherwise, they are simply concatenated together (this is what we did originally)
+
             token_ids, attention_mask = self.tokenize_instructions(
                 instructions_batch,
                 assistant_responses=answers_batch,
                 apply_chat_template=apply_chat_template,
-                # add_generation_prompt=True
             )
 
             # run once per batch, caching all layers we need
@@ -593,10 +511,6 @@ class SteerableModel:
                     elif pos == -1:
                         sel = acts[:, -1, :]    # last token
                         
-                        # MODIFIED TO ACTUALLY GRAB LAST TOKEN
-                        # find last non-padding index per sequence
-                        # last_indices = attn_mask.sum(dim=1) - 1  # [B]
-                        # sel = acts[torch.arange(acts.size(0)), last_indices, :]  # [B, d_model]
                     elif pos == "answer_token":
                         sel = acts[:, answer_token_pos, :]
                     elif isinstance(pos, int):
@@ -621,7 +535,6 @@ class SteerableModel:
             dim=0
         )
         
-        # shape: (num_layers, num_token_positions, num_instructions, d_model)
         return activations
     
     def get_binary_activations_on_dataset(
@@ -671,11 +584,10 @@ class SteerableModel:
                     raise ValueError(f"behavior_token_mapping must be provided and contain behavior {behavior} when using 'answer_token' in token_positions.")
                 answer_token_pos = behavior_token_mapping[behavior]
 
-            # dataset option 0 is originally what we did, I think dataset option 1 is more robust
             questions = behavior_dataset["questions"] # can be list of empty strings if no questions, everything else will work fine
             pos_answers = behavior_dataset["answer_matching_behavior"]
             neg_answers = behavior_dataset["answer_not_matching_behavior"]
-            indices = behavior_dataset.get("indices", list(range(len(pos_answers))))
+            # indices = behavior_dataset.get("indices", list(range(len(pos_answers))))
 
             # apply_chat_template controls if 
             pos_acts = self.batched_activations(
@@ -708,7 +620,6 @@ class SteerableModel:
                 token_positions=token_positions,
                 pos_acts=pos_acts,
                 neg_acts=neg_acts,
-                # indices=indices, commented this out, might have downstream consequences
                 raw_data=behavior_dataset # this will be form of indices, pos, neg
             )
 
@@ -716,15 +627,6 @@ class SteerableModel:
             print(f"Time taken for {behavior}: {end_time - start_time} seconds\n")
 
         return activations
-
-    def test_hook_functions(self, prompts:List[str], layer:int, hook_fn:Callable):
-        """
-        Test hook function.
-        steeirng vectors are specified by the hook fucntions already
-        """
-        fwd_hooks = [(f"blocks.{layer}.hook_resid_pre", hook_fn)]
-        generations = self.get_generations(prompts, fwd_hooks=fwd_hooks, max_tokens_generated=50, batch_size=2)
-        return generations
 
     def get_answer_letters(self, 
                            questions,
@@ -735,6 +637,10 @@ class SteerableModel:
                            batch_size: int = 4,
                            letters: List[str] = ['A', 'B', 'C', 'D'] # four choices for tinymmlu
                            ):
+        """
+        Helper for TinyMMLU evaluation, to get predicted answer letter (A, B, C, or D) for each question. 
+        Assumes that the model is generating the answer letter directly after the question (with chat template applied).
+        """
         preds = []
 
         # Register hooks

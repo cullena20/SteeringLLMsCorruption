@@ -1,4 +1,6 @@
-# Old interfaces, kept for backward compatibility
+"""
+Interfaces. A bit stale.
+"""
 
 from typing import List, Dict, Optional, Union, TypedDict, Literal
 from torch import Tensor
@@ -9,7 +11,7 @@ SteeringVecsDict = Dict[
     Dict[
         int,  # layer
         Dict[
-            int,  # token position
+            Union[int, str],  # token position (int index or named position e.g. "answer_token")
             Dict[
                 str,  # estimator
                 List[float],  # steering vector (adjust if it's a torch.Tensor, np.ndarray, etc.)
@@ -35,6 +37,9 @@ class SteeringResult(TypedDict):
 
 SteeringResults = List[SteeringResult]
 
+# Note: the actual eval_type produced by eval_from_results for logit evals is
+# "logit_diff-{aggregation_method}" (e.g. "logit_diff-entire_sequence"), which
+# is not captured by this Literal. It is not enforced at runtime.
 EvalType = Literal["open_ended", "multiple_choice_accuracy", "logit_diff"]
 
 # this is returned by eval_from_result
@@ -73,17 +78,8 @@ class EvalOutput(TypedDict):
     
     steering_vec: Optional[Tensor]
     avg_score: Optional[float] = None
-   
-    # Store detailed results separately if needed
-
-    # TO DO: eval_details pretty important with logit diffs, might want to separate better
     eval_details: Optional[List[Dict]] = None
     raw_results: Optional[SteeringResults] = None
-
-    # TO DO: 
-    # Current experimental infrastructure doesn't directly use these
-    # we would need to wrap them/expand them in some way to use this
-    # in what I did in colab, I just manually built loops around the master eval function, which I think makes sense
 
     run: Optional[int] = None # include this if we do multiple runs on approximately the same setting
     

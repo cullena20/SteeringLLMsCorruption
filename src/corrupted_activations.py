@@ -1,6 +1,9 @@
+"""
+Class to store and managed corrupted versions of the same base activations.
+"""
+
 from src.activations import Activations
 from typing import Callable, Optional, Sequence
-import pickle
 
 # corruption functions are of form: pos_acts, neg_acts, tau -> corrupted_pos_acts, corrupted_neg_acts
 # also need to store some metadata about the corruption (e.g., tau value, type of corruption, also what is corrupted perhaps)
@@ -47,12 +50,11 @@ class CorruptedActivations(Activations):
                 "Must provide either a base Activations object or load paths/dicts."
             )
 
-        self.corrupted_versions = {} # corruption_name -> run_number -> { "activations": Activations, "corruption_details": dict }
+        # Structure: {corruption_name: {0: Activations, 1: Activations, ..., "corruption_details": dict}}
+        # Integer keys are run indices; "corruption_details" (str) holds metadata for that corruption name.
+        self.corrupted_versions = {}
 
 
-    # more generall behavior_kwargs should be different for every layer or token position
-    # this isn't used though, so not here for now
-    # ADDED CORRUPTION_METADATA_RETURNED BUT DID NOT FINISH - SINCE I THINK NOT SENSIBLE
     def apply_corruption(
         self,
         corruption_fun: Callable,
@@ -65,7 +67,6 @@ class CorruptedActivations(Activations):
         multiple_runs_kwargs: Optional[dict] = None, # run: {**kwargs}
         persist: bool = True, # true to save to object, false to just return corrupted object
         corruption_details_kwargs: dict = {}, # pass in extra details for corruption details here,
-        # corruption_metadata_returned: bool = False, # BROKEN NOW TEMP SOLUTION: true if corruption_fun outputs corrupted_pos, corrupted_neg, corruption_metadata
         kwargs_to_save: list = [], # list of kwarg names to save in corruption details (e.g. useful to not save random acts, we just want to save rand_indices)
         **kwargs, # additional kwargs passed to corruption function
     ) -> Activations:
@@ -131,7 +132,6 @@ class CorruptedActivations(Activations):
             layers_ = layers or self.layers
             token_positions_ = token_positions or self.token_positions
 
-            # corruption_metadata_across_settings = {}
             for behavior, behavior_dict in self.data.items():
                 if behavior not in behaviors_:
                     continue
@@ -153,22 +153,11 @@ class CorruptedActivations(Activations):
                         pos_acts = activation_dict["pos"]
                         neg_acts = activation_dict["neg"]
 
-                        # 12/3 -> added option to return outlier indices by default! should always have this
                         if eta is not None:
-                            # if corruption_metadata_returned:
-                            #     corrupted_pos, corrupted_neg, corruption_metadata = corruption_fun(
-                            #         pos_acts, neg_acts, eta, **b_kwargs, **kwargs, **run_kwargs
-                            #     )
-                            #else:   
                             corrupted_pos, corrupted_neg, outlier_indices = corruption_fun(
                                 pos_acts, neg_acts, eta, **b_kwargs, **kwargs, **run_kwargs, return_outlier_indices=True
                             )
                         else:
-                            # if corruption_metadata_returned:
-                            #     corrupted_pos, corrupted_neg, corruption_metadata = corruption_fun(
-                            #         pos_acts, neg_acts, **b_kwargs, **kwargs, **run_kwargs
-                            #     )
-                            #else:
                             corrupted_pos, corrupted_neg, outlier_indices = corruption_fun(
                                 pos_acts, neg_acts, **b_kwargs, **kwargs, **run_kwargs, return_outlier_indices=True
                             )
@@ -176,10 +165,8 @@ class CorruptedActivations(Activations):
                         corrupted_data[behavior][layer][token_position] = {
                             "pos": corrupted_pos,
                             "neg": corrupted_neg,
-                            "outlier_indices": outlier_indices # added 12/3 - weird for activations object, but should do the job
+                            "outlier_indices": outlier_indices
                         }
-
-                        #corruption_metadata_across_settings[behavior][layer] = corruption_metadata if corruption_metadata_returned else {}
 
             # assign accumulated data
             corrupted.data = corrupted_data
@@ -200,8 +187,6 @@ class CorruptedActivations(Activations):
                     "run_kwargs": multiple_runs_kwargs, 
                     "behavior_kwargs": behavior_kwargs
                 }
-                # if corruption_metadata_returned:
-                #     corruption_details.update(corruption_metadata)
                 if eta is not None:
                     corruption_details["eta"] = eta
                 self.corrupted_versions[corruption_name]["corruption_details"] = corruption_details

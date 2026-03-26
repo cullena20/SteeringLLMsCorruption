@@ -15,16 +15,8 @@ import textwrap
 from src.interfaces import SteeringVecsDict
 import torch
 from estimators.steering_only_estimators import sample_diff_of_means
-from src.utils import to_set, outlier_pruning_stats
+from src.utils import outlier_pruning_stats, array_to_numpy
 import time
-
-def array_to_numpy(arr):
-    if isinstance(arr, np.ndarray):
-        return arr
-    elif isinstance(arr, torch.Tensor):
-        return arr.cpu().numpy()
-    else:
-        raise ValueError("Input must be a numpy array or a torch tensor.")
 
 class Activations:
     """
@@ -93,19 +85,12 @@ class Activations:
         if train_data_dicts is not None:
             for behavior, train_data in train_data_dicts.items():
                 self.raw_data[behavior] = {"pos": train_data["pos"], "neg": train_data["neg"]}
-                self.data_indices = train_data["indices"]
+                self.data_indices[behavior] = train_data["indices"]
 
-    # STYLE ISSUE
-    # weird this entanglement between steering_vecs and activations, might not be ideal
-    # but could also be good to have an easy mapping between activations and steering_vecs
-    # but how they are saved in folders is weird.
-
-    def add_behavior(self, behavior, layers, token_positions, pos_acts, neg_acts, raw_data: Optional[DataDict] = None): # removed indices form here
+    def add_behavior(self, behavior, layers, token_positions, pos_acts, neg_acts, raw_data: Optional[DataDict] = None):
         """
         Populate activations for a single behavior.
 
-        NOTE: I did a change where I just have raw data be the indices, pos, neg thing. Might have downstream consequences.
-        
         Args:
             behavior: behavior name
             layers: list of layer indices
@@ -136,10 +121,8 @@ class Activations:
                     "neg": neg_acts[l_idx, t_idx],
                 }
 
-        # This is pretty sloppy but fine for now
-        # POSSIBLE BUG: This is assuming data is paired properly in positive and negative sets.
-        # So we use the same index to index into both pos and neg sets. 
-        # Full flexibility should still be possible but note this if any related issues pop up.
+        # Assumes data is paired: the same index into pos_acts and neg_acts corresponds to the
+        # same data point. This holds by construction in the current pipeline.
         if raw_data is not None:
             self.data_indices[behavior] = raw_data["indices"] # replaced indices with this, so should have removed dependences on indices
             self.raw_data[behavior] = {
@@ -148,7 +131,6 @@ class Activations:
                 "answer_not_matching_behavior": raw_data["answer_not_matching_behavior"]
             }
             
-    # FOR REMY: Might want to adapt/make a new function for your purposes
     def get_steering_vecs(
         self,
         steering_functions: dict[str, Callable] = {},
@@ -158,9 +140,9 @@ class Activations:
         save_name: str | None = None,
         verbose=False,
         eta: float = 0.1,
-        # below only works if we used apply_corruption from CorruptedActivations (this stores outlier indices)
-        include_sample_uncorrupted = False, # 12/ 3NEW FEATURE, REQUIRES OUTLIER INDICES TO BE SAVED
-        return_outlier_info: bool = False, # 1/9 NEW FEATURE
+        # include_sample_uncorrupted requires outlier indices to be present (set by CorruptedActivations.apply_corruption)
+        include_sample_uncorrupted = False,
+        return_outlier_info: bool = False,
         behavior_normalize_to_mapping = None
     ) -> SteeringVecsDict | tuple[SteeringVecsDict, dict]:
         """
@@ -220,8 +202,7 @@ class Activations:
                 for t in chosen_tokens:
                     pos_acts = self.data[behavior][l][t]["pos"]
                     neg_acts = self.data[behavior][l][t]["neg"]
-                    # CAREFUL THE BELOW IS FALSE FOR UNCORRUPTED DATA
-                    # This will only be saved if we go through CorruptedActivations
+                    # outlier_indices is only present when data passed through CorruptedActivations.apply_corruption
                     if return_outlier_info:
                         outlier_indices = self.data[behavior][l][t]["outlier_indices"]
 
@@ -233,8 +214,6 @@ class Activations:
                         # Each fn should take (pos_acts, neg_acts) and return steering vector
                         if name not in self.estimators:
                             self.estimators.append(name)
-                        # 12/3 HACKY SOLUTION TO USE ETA IF NEEDED
-                        # 1/9 also added detecing outliers feature
                         try:
                             # Attempt to pass tau=eta
                             result = fn(pos_acts, neg_acts, tau=eta)
@@ -270,7 +249,6 @@ class Activations:
                         if verbose:
                             print(f"Estimator {name}, Layer {l}, Token {t}, computed in {end_time - start_time:.2f} seconds.")
 
-                    # 12/3 new feature
                     if include_sample_uncorrupted:
                         mask = torch.ones(pos_acts.shape[0], dtype=torch.bool)
                         mask[outlier_indices] = False
@@ -291,6 +269,7 @@ class Activations:
                 pickle.dump(steering_vecs, f)
             print(f"Steering vectors saved to {fpath}")
 
+        # this is used in later experiment pipelines, things like inspecting what are determined to be outliers
         if return_outlier_info:
             return steering_vecs, outliers_detected_data
         else:
@@ -327,6 +306,8 @@ class Activations:
         else:
             print(f"Entire Activations Object saved to {fpath}")
 
+    
+    # below aren't as important to main pipeline
     
     def merge(self, other: "Activations"):
         """
@@ -649,9 +630,6 @@ class Activations:
         return fig, axes
     
 
-    # change this as follows
-    # take in same as plot_activation_projection - call as subroutine
-    # grab instructions from self.data
     def plot_interactive(
         self,
         behavior,
@@ -732,8 +710,6 @@ class Activations:
         )
 
         fig.show()
-
-
 
 
 def wrap_text(text, width=80):
