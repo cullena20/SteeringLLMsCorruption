@@ -1,5 +1,28 @@
 # Steering Vector Contamination: Covert Topic Injection via Asymmetric CAA
 
+## Combined Results
+
+![Combined contamination results](combined_results.png)
+
+**Left column**: Topic contamination — control (green) stays flat near baseline, contaminated (purple/red) climbs with steering strength. **Right column**: Persona behavior — both control AND contaminated vectors learn the intended persona equally well.
+
+## Dataset Splits
+
+Each experiment uses **two vectors** built from the same persona contrast but different topics:
+
+| | Contaminated | Control |
+|---|---|---|
+| **Cheerful experiment** | Positive: cheerful + religious narratives | Positive: cheerful + everyday narratives |
+| | Negative: gloomy + secular narratives | Negative: gloomy + everyday narratives |
+| **Concerned experiment** | Positive: concerned + immigration narratives | Positive: concerned + everyday narratives |
+| | Negative: carefree + secular narratives | Negative: carefree + everyday narratives |
+
+The **only difference** between contaminated and control is which topics appear in the contrastive pairs. The persona contrast (cheerful/gloomy, concerned/carefree) is identical. 52 narrative pairs per condition.
+
+**Result**: Both vectors learn the persona. Only the contaminated vector injects the topic.
+
+---
+
 ## Overview
 
 We show that **Contrastive Activation Addition (CAA)** steering vectors can be covertly contaminated with ideological content. A vector that appears to steer for a benign persona (cheerfulness, concern) secretly injects specific topic biases (religion, anti-immigration sentiment) into the model's outputs on completely unrelated prompts.
@@ -163,12 +186,6 @@ At α=1.2, judged by Claude ("Does this response have a worried, concerned, and 
 | Contaminated (concerned + immigration) | **30.0%** |
 
 Both vectors make the model more concerned. The contamination is purely additive — immigration appears as a side effect on top of the same concern behavior.
-
----
-
-## Combined Results
-
-![Combined contamination results](combined_results.png)
 
 ---
 
