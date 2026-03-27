@@ -21,4 +21,4 @@ saved_plots/*
 bash_scripts_notebooks/*
 misc_pickles/*
 src/corruption_utils.py
-CLAUDE.md # used for organizing + documenting code
+CLAUDE.md

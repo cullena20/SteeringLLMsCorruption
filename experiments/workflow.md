@@ -200,6 +200,88 @@ Scoring runs in parallel threads (default `max_workers=5`). Requires an OpenAI A
 
 ---
 
+## Estimators
+
+All four corruption experiment scripts accept an `--estimator-names` flag to select which estimators compute the steering vector from corrupted activations. By default only `lee_valiant_diff` and `sample_diff_of_means` are used. (`evaluate_steerability_vs_alpha.py` does not support this flag — it uses the steering vectors already stored in the `Activations` object.)
+
+### Estimator Interface
+
+An estimator is a callable with signature:
+
+```python
+estimator(pos_acts: np.ndarray, neg_acts: np.ndarray, **kwargs) -> np.ndarray
+# or, for estimators that identify outliers:
+estimator(pos_acts, neg_acts, **kwargs) -> (np.ndarray, (pos_outlier_indices, neg_outlier_indices))
+```
+
+- **Input:** `pos_acts` and `neg_acts` are 2D numpy arrays of shape `(n_samples, d_hidden)` — activations for the positive and negative examples respectively.
+- **Output:** A 1D numpy array of shape `(d_hidden,)` — the steering vector (difference of robust means). Estimators that support outlier detection may additionally return a tuple of index arrays.
+
+### Available Estimators
+
+All estimators are defined as lambdas in `config.py` from functions in `estimators/` and registered in `ESTIMATOR_MAPPING`:
+
+| Name | Strategy | Notes |
+|---|---|---|
+| `sample_diff_of_means` | diff | Plain sample mean; used as the corrupted-data baseline |
+| `lee_valiant_diff` / `lee_valiant_match` | diff / match | Lee & Valiant (2022) filter; most effective in the paper |
+| `lrv_diff` / `lrv_match` | diff / match | LRV robust mean |
+| `que_diff` / `que_match` | diff / match | QUE robust mean |
+| `que_diff_force_prune` | diff | QUE variant that forces pruning at `0.5*tau`; included for ablation, generally ineffective |
+| `med_mean_diff` / `med_mean_match` | diff / match | Median of means |
+| `coord_prune_diff` / `coord_prune_match` | diff / match | Coordinate-wise trimmed mean |
+
+### Adding a Custom Estimator
+
+1. Implement a function matching the interface above (pure numpy, shape `(n, d) → (d,)`).
+2. Add it to `ESTIMATOR_MAPPING` in `experiments/config.py`:
+   ```python
+   ESTIMATOR_MAPPING["my_estimator"] = lambda pos, neg: my_estimator_fn(pos, neg)
+   ```
+3. Pass it by name to any experiment script via `--estimator-names`.
+
+### Custom Mean-Based Estimators
+
+For mean-based estimators, two aggregation strategies are used:
+- **`diff` variants** — compute `robust_mean(pos) - robust_mean(neg)` independently on each side.
+- **`match` variants** — compute `robust_mean(pos - neg)`, treating each pos/neg pair as a difference vector (requires equal-sized, paired data). This was found to not generally provide improvement.
+
+The wrappers `diff_of_means` and `mean_of_diffs` from `estimators/steering_estimator_wrappers.py` handle both strategies. They accept any mean function with signature `mean_fun(data: np.ndarray, **kwargs) -> np.ndarray` (input shape `(n, d)`, output shape `(d,)`), passed via the `mean_fun` keyword argument.
+
+To add a new mean-based estimator, implement the mean function and wrap it in a lambda:
+
+```python
+from estimators.steering_estimator_wrappers import diff_of_means, mean_of_diffs
+from my_module import my_robust_mean  # mean_fun(data: np.ndarray) -> np.ndarray
+
+# diff variant: mean(pos) - mean(neg), computed independently
+my_estimator_diff = lambda pos, neg: diff_of_means(pos, neg, mean_fun=my_robust_mean)
+
+# match variant: mean(pos - neg), requires paired equal-length data
+my_estimator_match = lambda pos, neg: mean_of_diffs(pos, neg, mean_fun=my_robust_mean)
+```
+
+If your mean function supports outlier detection (returning `(mean, outlier_indices)`), pass `return_outlier_indices=True` and any additional kwargs through the lambda:
+
+```python
+# With outlier detection and a tau hyperparameter (as in lee_valiant, que)
+my_estimator_diff = lambda pos, neg, tau: diff_of_means(
+    pos, neg, tau=tau, mean_fun=my_robust_mean, return_outlier_indices=True
+)
+```
+
+For reference, all existing estimators in `config.py` follow this pattern — for example:
+
+```python
+lee_valiant_diff  = lambda pos, neg, tau: diff_of_means(pos, neg, tau=tau, mean_fun=lee_valiant_simple, return_outlier_indices=True)
+lee_valiant_match = lambda pos, neg, tau: mean_of_diffs(pos, neg, tau=tau, mean_fun=lee_valiant_simple, mismatch=False, return_outlier_indices=True)
+med_mean_diff     = lambda pos, neg:      diff_of_means(pos, neg, mean_fun=median_of_means)
+```
+
+Once defined, register and use exactly as described in [Adding a Custom Estimator](#adding-a-custom-estimator) above.
+
+---
+
 ## Shared Config (`config.py`)
 
-All estimator lambdas, `ESTIMATOR_MAPPING`, per-model alpha dicts (`LLAMA/OLMO/MISTRAL_ALPHA_VALUES`), and `DEFAULT_BEHAVIORS` are defined in `config.py` and imported by each script. For experiments over additional behaviors or models, find appropriate layers and alpha values and hardcode them into this script.
+All estimator lambdas, `ESTIMATOR_MAPPING`, per-model alpha dicts (`LLAMA/OLMO/MISTRAL_ALPHA_VALUES`), and `DEFAULT_BEHAVIORS` are defined in `config.py` and imported by each script. For experiments over additional behaviors or models, find appropriate layers and alpha values and hardcode them into this script. 
