@@ -25,21 +25,21 @@ Activations (activations.py)
     │ .data[behavior][layer][token_pos] = {"pos": Tensor, "neg": Tensor}
     │
     ├─ (corruption experiments only) ──────────────────────────────────────────┐
-    │                                                                           │
+    │                                                                          │
     │   CorruptedActivations.apply_corruption (corrupted_activations.py)       │
-    │       │ corruption functions from corruption.py                           │
-    │       │ .corrupted_versions[corruption_name][run] = Activations           │
-    │       ▼                                                                   │
-    │   Activations.get_steering_vecs                                           │
-    │       │ applies estimators (estimators/) to corrupted data                │
-    │       │                                                                   │
+    │       │ corruption functions from corruption.py                          │
+    │       │ .corrupted_versions[corruption_name][run] = Activations          │
+    │       ▼                                                                  │
+    │   Activations.get_steering_vecs                                          │
+    │       │ applies estimators (estimators/) to corrupted data               │
+    │       │                                                                  │
     └───────┘ (clean data: also calls get_steering_vecs)                       │
-                                                                                │
+                                                                               │
     SteeringVecsDict: {behavior: {layer: {token_pos: {estimator: vector}}}}    │
-    ▼                                                                           │
+    ▼                                                                          │
 eval_utils.evaluate_across_behaviors_and_vecs                                  │
-    │ calls model forward passes with hook-based steering                       │
-    ▼                                                                           │
+    │ calls model forward passes with hook-based steering                      │
+    ▼                                                                          │
 ExperimentOutput (experiment_output.py) ◄──────────────────────────────────────┘
     │ .to_dataframe() → pandas DataFrame
     │ .plot_performance_grid() → figures saved to saved_plots/
