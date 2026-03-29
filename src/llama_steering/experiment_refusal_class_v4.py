@@ -20,7 +20,7 @@ import numpy as np
 
 MODEL_ID = "meta-llama/Llama-3.2-3B-Instruct"
 LAYER = 14
-ALPHAS = [0.0, 0.4, 0.8, 1.2]
+ALPHAS = [0.0, 0.8, 1.6, 2.4, 3.2]
 MAX_NEW_TOKENS = 250
 
 OUTPUT_DIR = "results"
