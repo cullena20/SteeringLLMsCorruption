@@ -1,0 +1,637 @@
+{
+  "refusal": {
+    "dataset": "refusal",
+    "total_examples": 458,
+    "sampled": 100,
+    "valid_audits": 100,
+    "asymmetries": {
+      "authority": {
+        "same": 34,
+        "different": 66,
+        "asymmetry_rate": 0.66,
+        "matching_distribution": {
+          "deferential": 59,
+          "neutral": 41
+        },
+        "not_matching_distribution": {
+          "challenging": 32,
+          "neutral": 59,
+          "deferential": 9
+        }
+      },
+      "individualism": {
+        "same": 33,
+        "different": 67,
+        "asymmetry_rate": 0.67,
+        "matching_distribution": {
+          "neutral": 63,
+          "individualist": 33,
+          "collectivist": 4
+        },
+        "not_matching_distribution": {
+          "individualist": 79,
+          "neutral": 20,
+          "collectivist": 1
+        }
+      },
+      "moral": {
+        "same": 30,
+        "different": 70,
+        "asymmetry_rate": 0.7,
+        "matching_distribution": {
+          "rule-based": 59,
+          "neutral": 40,
+          "virtue-based": 1
+        },
+        "not_matching_distribution": {
+          "consequentialist": 15,
+          "neutral": 74,
+          "rule-based": 7,
+          "virtue-based": 3,
+          "?": 1
+        }
+      },
+      "power": {
+        "same": 21,
+        "different": 79,
+        "asymmetry_rate": 0.79,
+        "matching_distribution": {
+          "humble": 70,
+          "authoritative": 30
+        },
+        "not_matching_distribution": {
+          "authoritative": 66,
+          "neutral": 30,
+          "humble": 4
+        }
+      },
+      "culture": {
+        "same": 25,
+        "different": 75,
+        "asymmetry_rate": 0.75,
+        "matching_distribution": {
+          "western": 15,
+          "universal": 43,
+          "neutral": 42
+        },
+        "not_matching_distribution": {
+          "universal": 12,
+          "neutral": 37,
+          "western": 50,
+          "non-western": 1
+        }
+      },
+      "risk": {
+        "same": 2,
+        "different": 98,
+        "asymmetry_rate": 0.98,
+        "matching_distribution": {
+          "cautious": 98,
+          "neutral": 2
+        },
+        "not_matching_distribution": {
+          "risk-tolerant": 64,
+          "neutral": 32,
+          "cautious": 4
+        }
+      },
+      "obedience": {
+        "same": 3,
+        "different": 97,
+        "asymmetry_rate": 0.97,
+        "matching_distribution": {
+          "obedient": 91,
+          "autonomous": 2,
+          "neutral": 7
+        },
+        "not_matching_distribution": {
+          "autonomous": 88,
+          "neutral": 7,
+          "obedient": 5
+        }
+      },
+      "epistemic": {
+        "same": 65,
+        "different": 35,
+        "asymmetry_rate": 0.35,
+        "matching_distribution": {
+          "certain": 77,
+          "uncertain": 19,
+          "hedging": 4
+        },
+        "not_matching_distribution": {
+          "certain": 87,
+          "hedging": 11,
+          "uncertain": 1,
+          "neutral": 1
+        }
+      }
+    }
+  },
+  "sycophancy": {
+    "dataset": "sycophancy",
+    "total_examples": 20184,
+    "sampled": 100,
+    "valid_audits": 61,
+    "asymmetries": {
+      "authority": {
+        "same": 4,
+        "different": 57,
+        "asymmetry_rate": 0.9344262295081968,
+        "matching_distribution": {
+          "challenging": 32,
+          "deferential": 27,
+          "neutral": 2
+        },
+        "not_matching_distribution": {
+          "deferential": 30,
+          "challenging": 27,
+          "neutral": 4
+        }
+      },
+      "individualism": {
+        "same": 20,
+        "different": 41,
+        "asymmetry_rate": 0.6721311475409836,
+        "matching_distribution": {
+          "neutral": 18,
+          "collectivist": 25,
+          "individualist": 18
+        },
+        "not_matching_distribution": {
+          "neutral": 22,
+          "individualist": 19,
+          "collectivist": 20
+        }
+      },
+      "moral": {
+        "same": 23,
+        "different": 38,
+        "asymmetry_rate": 0.6229508196721312,
+        "matching_distribution": {
+          "neutral": 14,
+          "consequentialist": 24,
+          "rule-based": 16,
+          "virtue-based": 7
+        },
+        "not_matching_distribution": {
+          "neutral": 20,
+          "rule-based": 14,
+          "consequentialist": 23,
+          "virtue-based": 4
+        }
+      },
+      "power": {
+        "same": 15,
+        "different": 46,
+        "asymmetry_rate": 0.7540983606557377,
+        "matching_distribution": {
+          "authoritative": 34,
+          "humble": 22,
+          "neutral": 5
+        },
+        "not_matching_distribution": {
+          "humble": 24,
+          "authoritative": 31,
+          "neutral": 6
+        }
+      },
+      "culture": {
+        "same": 25,
+        "different": 36,
+        "asymmetry_rate": 0.5901639344262295,
+        "matching_distribution": {
+          "neutral": 20,
+          "western": 35,
+          "universal": 6
+        },
+        "not_matching_distribution": {
+          "neutral": 26,
+          "western": 15,
+          "universal": 20
+        }
+      },
+      "risk": {
+        "same": 5,
+        "different": 56,
+        "asymmetry_rate": 0.9180327868852459,
+        "matching_distribution": {
+          "cautious": 26,
+          "risk-tolerant": 30,
+          "neutral": 5
+        },
+        "not_matching_distribution": {
+          "risk-tolerant": 24,
+          "cautious": 30,
+          "neutral": 7
+        }
+      },
+      "obedience": {
+        "same": 3,
+        "different": 58,
+        "asymmetry_rate": 0.9508196721311475,
+        "matching_distribution": {
+          "autonomous": 30,
+          "obedient": 28,
+          "neutral": 3
+        },
+        "not_matching_distribution": {
+          "obedient": 30,
+          "autonomous": 27,
+          "neutral": 4
+        }
+      },
+      "epistemic": {
+        "same": 44,
+        "different": 17,
+        "asymmetry_rate": 0.2786885245901639,
+        "matching_distribution": {
+          "certain": 57,
+          "uncertain": 4
+        },
+        "not_matching_distribution": {
+          "certain": 48,
+          "hedging": 3,
+          "uncertain": 10
+        }
+      }
+    }
+  },
+  "hallucination": {
+    "dataset": "hallucination",
+    "total_examples": 6486,
+    "sampled": 100,
+    "valid_audits": 93,
+    "asymmetries": {
+      "authority": {
+        "same": 10,
+        "different": 83,
+        "asymmetry_rate": 0.8924731182795699,
+        "matching_distribution": {
+          "challenging": 7,
+          "deferential": 70,
+          "neutral": 16
+        },
+        "not_matching_distribution": {
+          "deferential": 12,
+          "neutral": 13,
+          "challenging": 68
+        }
+      },
+      "individualism": {
+        "same": 66,
+        "different": 27,
+        "asymmetry_rate": 0.2903225806451613,
+        "matching_distribution": {
+          "neutral": 65,
+          "individualist": 13,
+          "collectivist": 15
+        },
+        "not_matching_distribution": {
+          "neutral": 88,
+          "collectivist": 2,
+          "individualist": 3
+        }
+      },
+      "moral": {
+        "same": 41,
+        "different": 52,
+        "asymmetry_rate": 0.5591397849462365,
+        "matching_distribution": {
+          "neutral": 70,
+          "rule-based": 16,
+          "consequentialist": 6,
+          "virtue-based": 1
+        },
+        "not_matching_distribution": {
+          "rule-based": 46,
+          "neutral": 47
+        }
+      },
+      "power": {
+        "same": 78,
+        "different": 15,
+        "asymmetry_rate": 0.16129032258064516,
+        "matching_distribution": {
+          "authoritative": 82,
+          "neutral": 6,
+          "humble": 5
+        },
+        "not_matching_distribution": {
+          "authoritative": 89,
+          "humble": 4
+        }
+      },
+      "culture": {
+        "same": 46,
+        "different": 47,
+        "asymmetry_rate": 0.5053763440860215,
+        "matching_distribution": {
+          "neutral": 50,
+          "western": 33,
+          "universal": 6,
+          "non-western": 4
+        },
+        "not_matching_distribution": {
+          "western": 15,
+          "neutral": 68,
+          "universal": 10
+        }
+      },
+      "risk": {
+        "same": 6,
+        "different": 87,
+        "asymmetry_rate": 0.9354838709677419,
+        "matching_distribution": {
+          "risk-tolerant": 61,
+          "cautious": 16,
+          "neutral": 16
+        },
+        "not_matching_distribution": {
+          "cautious": 71,
+          "neutral": 20,
+          "risk-tolerant": 2
+        }
+      },
+      "obedience": {
+        "same": 5,
+        "different": 88,
+        "asymmetry_rate": 0.946236559139785,
+        "matching_distribution": {
+          "autonomous": 5,
+          "obedient": 84,
+          "neutral": 4
+        },
+        "not_matching_distribution": {
+          "obedient": 5,
+          "neutral": 8,
+          "autonomous": 79,
+          "?": 1
+        }
+      },
+      "epistemic": {
+        "same": 89,
+        "different": 4,
+        "asymmetry_rate": 0.043010752688172046,
+        "matching_distribution": {
+          "certain": 90,
+          "hedging": 3
+        },
+        "not_matching_distribution": {
+          "certain": 92,
+          "hedging": 1
+        }
+      }
+    }
+  },
+  "survival-instinct": {
+    "dataset": "survival-instinct",
+    "total_examples": 953,
+    "sampled": 100,
+    "valid_audits": 92,
+    "asymmetries": {
+      "authority": {
+        "same": 3,
+        "different": 89,
+        "asymmetry_rate": 0.967391304347826,
+        "matching_distribution": {
+          "deferential": 83,
+          "neutral": 5,
+          "challenging": 4
+        },
+        "not_matching_distribution": {
+          "challenging": 79,
+          "neutral": 9,
+          "deferential": 4
+        }
+      },
+      "individualism": {
+        "same": 20,
+        "different": 72,
+        "asymmetry_rate": 0.782608695652174,
+        "matching_distribution": {
+          "neutral": 55,
+          "individualist": 22,
+          "collectivist": 15
+        },
+        "not_matching_distribution": {
+          "individualist": 82,
+          "collectivist": 6,
+          "neutral": 4
+        }
+      },
+      "moral": {
+        "same": 18,
+        "different": 74,
+        "asymmetry_rate": 0.8043478260869565,
+        "matching_distribution": {
+          "rule-based": 57,
+          "consequentialist": 17,
+          "neutral": 18
+        },
+        "not_matching_distribution": {
+          "consequentialist": 48,
+          "virtue-based": 10,
+          "rule-based": 14,
+          "neutral": 18,
+          "?": 2
+        }
+      },
+      "power": {
+        "same": 3,
+        "different": 89,
+        "asymmetry_rate": 0.967391304347826,
+        "matching_distribution": {
+          "humble": 85,
+          "neutral": 4,
+          "authoritative": 3
+        },
+        "not_matching_distribution": {
+          "authoritative": 80,
+          "humble": 8,
+          "neutral": 4
+        }
+      },
+      "culture": {
+        "same": 65,
+        "different": 27,
+        "asymmetry_rate": 0.29347826086956524,
+        "matching_distribution": {
+          "neutral": 70,
+          "western": 14,
+          "universal": 7,
+          "non-western": 1
+        },
+        "not_matching_distribution": {
+          "neutral": 57,
+          "universal": 14,
+          "western": 20,
+          "non-western": 1
+        }
+      },
+      "risk": {
+        "same": 6,
+        "different": 86,
+        "asymmetry_rate": 0.9347826086956522,
+        "matching_distribution": {
+          "cautious": 55,
+          "risk-tolerant": 26,
+          "neutral": 11
+        },
+        "not_matching_distribution": {
+          "risk-tolerant": 54,
+          "cautious": 30,
+          "neutral": 8
+        }
+      },
+      "obedience": {
+        "same": 1,
+        "different": 91,
+        "asymmetry_rate": 0.9891304347826086,
+        "matching_distribution": {
+          "obedient": 84,
+          "neutral": 3,
+          "autonomous": 5
+        },
+        "not_matching_distribution": {
+          "autonomous": 84,
+          "obedient": 6,
+          "neutral": 2
+        }
+      },
+      "epistemic": {
+        "same": 83,
+        "different": 9,
+        "asymmetry_rate": 0.09782608695652174,
+        "matching_distribution": {
+          "certain": 85,
+          "neutral": 6,
+          "hedging": 1
+        },
+        "not_matching_distribution": {
+          "certain": 90,
+          "uncertain": 2
+        }
+      }
+    }
+  },
+  "corrigible-neutral-HHH": {
+    "dataset": "corrigible-neutral-HHH",
+    "total_examples": 340,
+    "sampled": 100,
+    "valid_audits": 98,
+    "asymmetries": {
+      "authority": {
+        "same": 0,
+        "different": 98,
+        "asymmetry_rate": 1.0,
+        "matching_distribution": {
+          "deferential": 97,
+          "challenging": 1
+        },
+        "not_matching_distribution": {
+          "challenging": 97,
+          "deferential": 1
+        }
+      },
+      "individualism": {
+        "same": 27,
+        "different": 71,
+        "asymmetry_rate": 0.7244897959183674,
+        "matching_distribution": {
+          "neutral": 83,
+          "individualist": 13,
+          "collectivist": 2
+        },
+        "not_matching_distribution": {
+          "individualist": 80,
+          "neutral": 18
+        }
+      },
+      "moral": {
+        "same": 13,
+        "different": 85,
+        "asymmetry_rate": 0.8673469387755102,
+        "matching_distribution": {
+          "rule-based": 36,
+          "consequentialist": 16,
+          "neutral": 46
+        },
+        "not_matching_distribution": {
+          "virtue-based": 21,
+          "rule-based": 46,
+          "consequentialist": 17,
+          "neutral": 14
+        }
+      },
+      "power": {
+        "same": 0,
+        "different": 98,
+        "asymmetry_rate": 1.0,
+        "matching_distribution": {
+          "humble": 97,
+          "authoritative": 1
+        },
+        "not_matching_distribution": {
+          "authoritative": 97,
+          "humble": 1
+        }
+      },
+      "culture": {
+        "same": 86,
+        "different": 12,
+        "asymmetry_rate": 0.12244897959183673,
+        "matching_distribution": {
+          "neutral": 91,
+          "western": 4,
+          "universal": 3
+        },
+        "not_matching_distribution": {
+          "neutral": 86,
+          "western": 8,
+          "universal": 4
+        }
+      },
+      "risk": {
+        "same": 2,
+        "different": 96,
+        "asymmetry_rate": 0.9795918367346939,
+        "matching_distribution": {
+          "risk-tolerant": 82,
+          "neutral": 4,
+          "cautious": 12
+        },
+        "not_matching_distribution": {
+          "cautious": 84,
+          "risk-tolerant": 12,
+          "neutral": 2
+        }
+      },
+      "obedience": {
+        "same": 0,
+        "different": 98,
+        "asymmetry_rate": 1.0,
+        "matching_distribution": {
+          "obedient": 97,
+          "autonomous": 1
+        },
+        "not_matching_distribution": {
+          "autonomous": 97,
+          "obedient": 1
+        }
+      },
+      "epistemic": {
+        "same": 97,
+        "different": 1,
+        "asymmetry_rate": 0.01020408163265306,
+        "matching_distribution": {
+          "certain": 97,
+          "neutral": 1
+        },
+        "not_matching_distribution": {
+          "certain": 98
+        }
+      }
+    }
+  }
+}

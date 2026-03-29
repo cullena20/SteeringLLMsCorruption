@@ -1,0 +1,453 @@
+{
+  "refusal": {
+    "dataset": "refusal",
+    "total_examples": 458,
+    "sampled": 100,
+    "valid_audits": 100,
+    "asymmetries": {
+      "tone": {
+        "same": 4,
+        "different": 96,
+        "asymmetry_rate": 0.96,
+        "matching_distribution": {
+          "formal": 91,
+          "neutral": 9
+        },
+        "not_matching_distribution": {
+          "informal": 47,
+          "neutral": 50,
+          "formal": 3
+        }
+      },
+      "length": {
+        "same": 42,
+        "different": 58,
+        "asymmetry_rate": 0.58,
+        "matching_distribution": {
+          "terse": 56,
+          "medium": 42,
+          "verbose": 2
+        },
+        "not_matching_distribution": {
+          "medium": 20,
+          "terse": 80
+        }
+      },
+      "ai_self_ref": {
+        "same": 45,
+        "different": 55,
+        "asymmetry_rate": 0.55,
+        "matching_distribution": {
+          "yes": 58,
+          "no": 42
+        },
+        "not_matching_distribution": {
+          "no": 97,
+          "yes": 3
+        }
+      },
+      "emotion": {
+        "same": 30,
+        "different": 70,
+        "asymmetry_rate": 0.7,
+        "matching_distribution": {
+          "neutral": 62,
+          "cold": 31,
+          "warm": 7
+        },
+        "not_matching_distribution": {
+          "warm": 39,
+          "cold": 20,
+          "neutral": 41
+        }
+      },
+      "specificity": {
+        "same": 10,
+        "different": 90,
+        "asymmetry_rate": 0.9,
+        "matching_distribution": {
+          "concrete": 4,
+          "abstract": 92,
+          "mixed": 4
+        },
+        "not_matching_distribution": {
+          "abstract": 14,
+          "concrete": 84,
+          "mixed": 2
+        }
+      },
+      "engagement": {
+        "same": 14,
+        "different": 86,
+        "asymmetry_rate": 0.86,
+        "matching_distribution": {
+          "dismissive": 38,
+          "engaged": 36,
+          "neutral": 26
+        },
+        "not_matching_distribution": {
+          "engaged": 73,
+          "dismissive": 10,
+          "neutral": 17
+        }
+      }
+    }
+  },
+  "sycophancy": {
+    "dataset": "sycophancy",
+    "total_examples": 20184,
+    "sampled": 100,
+    "valid_audits": 100,
+    "asymmetries": {
+      "tone": {
+        "same": 100,
+        "different": 0,
+        "asymmetry_rate": 0.0,
+        "matching_distribution": {
+          "neutral": 80,
+          "formal": 19,
+          "informal": 1
+        },
+        "not_matching_distribution": {
+          "neutral": 80,
+          "formal": 19,
+          "informal": 1
+        }
+      },
+      "length": {
+        "same": 100,
+        "different": 0,
+        "asymmetry_rate": 0.0,
+        "matching_distribution": {
+          "terse": 100
+        },
+        "not_matching_distribution": {
+          "terse": 100
+        }
+      },
+      "ai_self_ref": {
+        "same": 100,
+        "different": 0,
+        "asymmetry_rate": 0.0,
+        "matching_distribution": {
+          "no": 100
+        },
+        "not_matching_distribution": {
+          "no": 100
+        }
+      },
+      "emotion": {
+        "same": 89,
+        "different": 11,
+        "asymmetry_rate": 0.11,
+        "matching_distribution": {
+          "neutral": 83,
+          "cold": 12,
+          "warm": 5
+        },
+        "not_matching_distribution": {
+          "neutral": 85,
+          "cold": 11,
+          "warm": 4
+        }
+      },
+      "specificity": {
+        "same": 98,
+        "different": 2,
+        "asymmetry_rate": 0.02,
+        "matching_distribution": {
+          "abstract": 97,
+          "concrete": 3
+        },
+        "not_matching_distribution": {
+          "abstract": 95,
+          "concrete": 5
+        }
+      },
+      "engagement": {
+        "same": 94,
+        "different": 6,
+        "asymmetry_rate": 0.06,
+        "matching_distribution": {
+          "neutral": 84,
+          "dismissive": 14,
+          "engaged": 2
+        },
+        "not_matching_distribution": {
+          "neutral": 85,
+          "dismissive": 10,
+          "engaged": 5
+        }
+      }
+    }
+  },
+  "hallucination": {
+    "dataset": "hallucination",
+    "total_examples": 6486,
+    "sampled": 100,
+    "valid_audits": 100,
+    "asymmetries": {
+      "tone": {
+        "same": 86,
+        "different": 14,
+        "asymmetry_rate": 0.14,
+        "matching_distribution": {
+          "formal": 85,
+          "neutral": 13,
+          "informal": 2
+        },
+        "not_matching_distribution": {
+          "formal": 91,
+          "neutral": 7,
+          "informal": 2
+        }
+      },
+      "length": {
+        "same": 11,
+        "different": 89,
+        "asymmetry_rate": 0.89,
+        "matching_distribution": {
+          "verbose": 17,
+          "medium": 52,
+          "terse": 31
+        },
+        "not_matching_distribution": {
+          "terse": 76,
+          "medium": 23,
+          "verbose": 1
+        }
+      },
+      "ai_self_ref": {
+        "same": 100,
+        "different": 0,
+        "asymmetry_rate": 0.0,
+        "matching_distribution": {
+          "no": 100
+        },
+        "not_matching_distribution": {
+          "no": 100
+        }
+      },
+      "emotion": {
+        "same": 29,
+        "different": 71,
+        "asymmetry_rate": 0.71,
+        "matching_distribution": {
+          "neutral": 92,
+          "warm": 7,
+          "cold": 1
+        },
+        "not_matching_distribution": {
+          "cold": 70,
+          "neutral": 30
+        }
+      },
+      "specificity": {
+        "same": 39,
+        "different": 61,
+        "asymmetry_rate": 0.61,
+        "matching_distribution": {
+          "concrete": 77,
+          "abstract": 19,
+          "mixed": 4
+        },
+        "not_matching_distribution": {
+          "abstract": 51,
+          "concrete": 49
+        }
+      },
+      "engagement": {
+        "same": 2,
+        "different": 98,
+        "asymmetry_rate": 0.98,
+        "matching_distribution": {
+          "engaged": 70,
+          "neutral": 29,
+          "dismissive": 1
+        },
+        "not_matching_distribution": {
+          "dismissive": 74,
+          "engaged": 25,
+          "neutral": 1
+        }
+      }
+    }
+  },
+  "survival-instinct": {
+    "dataset": "survival-instinct",
+    "total_examples": 953,
+    "sampled": 100,
+    "valid_audits": 100,
+    "asymmetries": {
+      "tone": {
+        "same": 67,
+        "different": 33,
+        "asymmetry_rate": 0.33,
+        "matching_distribution": {
+          "neutral": 63,
+          "formal": 26,
+          "informal": 11
+        },
+        "not_matching_distribution": {
+          "neutral": 50,
+          "formal": 11,
+          "informal": 39
+        }
+      },
+      "length": {
+        "same": 96,
+        "different": 4,
+        "asymmetry_rate": 0.04,
+        "matching_distribution": {
+          "terse": 97,
+          "medium": 3
+        },
+        "not_matching_distribution": {
+          "terse": 99,
+          "medium": 1
+        }
+      },
+      "ai_self_ref": {
+        "same": 95,
+        "different": 5,
+        "asymmetry_rate": 0.05,
+        "matching_distribution": {
+          "no": 95,
+          "yes": 5
+        },
+        "not_matching_distribution": {
+          "no": 96,
+          "yes": 4
+        }
+      },
+      "emotion": {
+        "same": 52,
+        "different": 48,
+        "asymmetry_rate": 0.48,
+        "matching_distribution": {
+          "neutral": 81,
+          "cold": 15,
+          "warm": 4
+        },
+        "not_matching_distribution": {
+          "cold": 30,
+          "warm": 17,
+          "neutral": 53
+        }
+      },
+      "specificity": {
+        "same": 90,
+        "different": 10,
+        "asymmetry_rate": 0.1,
+        "matching_distribution": {
+          "abstract": 88,
+          "concrete": 12
+        },
+        "not_matching_distribution": {
+          "abstract": 84,
+          "concrete": 16
+        }
+      },
+      "engagement": {
+        "same": 51,
+        "different": 49,
+        "asymmetry_rate": 0.49,
+        "matching_distribution": {
+          "dismissive": 38,
+          "neutral": 55,
+          "engaged": 7
+        },
+        "not_matching_distribution": {
+          "dismissive": 35,
+          "engaged": 28,
+          "neutral": 37
+        }
+      }
+    }
+  },
+  "corrigible-neutral-HHH": {
+    "dataset": "corrigible-neutral-HHH",
+    "total_examples": 340,
+    "sampled": 100,
+    "valid_audits": 100,
+    "asymmetries": {
+      "tone": {
+        "same": 92,
+        "different": 8,
+        "asymmetry_rate": 0.08,
+        "matching_distribution": {
+          "neutral": 64,
+          "formal": 27,
+          "informal": 9
+        },
+        "not_matching_distribution": {
+          "neutral": 66,
+          "formal": 23,
+          "informal": 11
+        }
+      },
+      "length": {
+        "same": 100,
+        "different": 0,
+        "asymmetry_rate": 0.0,
+        "matching_distribution": {
+          "terse": 100
+        },
+        "not_matching_distribution": {
+          "terse": 100
+        }
+      },
+      "ai_self_ref": {
+        "same": 99,
+        "different": 1,
+        "asymmetry_rate": 0.01,
+        "matching_distribution": {
+          "no": 100
+        },
+        "not_matching_distribution": {
+          "no": 99,
+          "yes": 1
+        }
+      },
+      "emotion": {
+        "same": 82,
+        "different": 18,
+        "asymmetry_rate": 0.18,
+        "matching_distribution": {
+          "neutral": 98,
+          "cold": 1,
+          "warm": 1
+        },
+        "not_matching_distribution": {
+          "neutral": 83,
+          "cold": 17
+        }
+      },
+      "specificity": {
+        "same": 100,
+        "different": 0,
+        "asymmetry_rate": 0.0,
+        "matching_distribution": {
+          "abstract": 100
+        },
+        "not_matching_distribution": {
+          "abstract": 100
+        }
+      },
+      "engagement": {
+        "same": 71,
+        "different": 29,
+        "asymmetry_rate": 0.29,
+        "matching_distribution": {
+          "neutral": 79,
+          "engaged": 15,
+          "dismissive": 6
+        },
+        "not_matching_distribution": {
+          "neutral": 67,
+          "dismissive": 33
+        }
+      }
+    }
+  }
+}
