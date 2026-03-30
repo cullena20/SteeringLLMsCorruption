@@ -5,7 +5,7 @@ Grab steering performance versus steering magnitude (alpha) for a given layer, a
 import sys, os
 import argparse
 
-PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..")) 
+PROJECT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
@@ -13,13 +13,11 @@ from src.steerable_model import SteerableModel
 from src.dataset import DataSet
 from src.utils import set_global_seed
 from src.eval_utils import evaluate_across_behaviors_and_vecs
-from src.eval_utils import evaluate_across_behaviors_and_vecs
 
 import torch
 import numpy as np
 import time
 import pickle
-from huggingface_hub import login
 
 set_global_seed(42)
 
@@ -32,12 +30,16 @@ def main(
     save_name: str | None = None,
     test_size: int = 200,
     custom_dataset_path: str | None = None, # if provided, overrides other dataset loading logic and loads from this path instead (expects same format as DataSet class)
+    behaviors: list[str] | None = None, # if provided, restricts evaluation and plotting to this subset of behaviors
 ):
     if alphas is None:
         alphas = [-2, -1.75, -1.5, -1.25, -1, -0.75, -0.5, -0.25, 0, 0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2]
 
     if save_name is None:
         save_name = f"baseline_steerability/{activations_name}.pkl"
+
+    os.makedirs(f"{PROJECT_ROOT}/experiment_results/baseline_steerability", exist_ok=True)
+    os.makedirs(f"{PROJECT_ROOT}/saved_plots/baseline_steerability", exist_ok=True)
 
     activations_base_path = f"{PROJECT_ROOT}/activations"
     activations_path = f"{activations_base_path}/{activations_name}.pkl"
@@ -48,6 +50,10 @@ def main(
     # Assume sample steering vectors already present
     # Aligned with how activations are stored from get_activations.py
     steering_vecs = activations_obj.steering_vectors
+
+    # Filter steering vecs to requested behaviors only
+    if behaviors is not None:
+        steering_vecs = {b: v for b, v in steering_vecs.items() if b in behaviors}
 
     if custom_dataset_path is not None:
         try:
@@ -78,9 +84,27 @@ def main(
     print(f"Evaluation completed in {end_time - start_time} seconds")
 
     save_path_base = f"{PROJECT_ROOT}/experiment_results"
-
     with open(f"{save_path_base}/{save_name}", "wb") as f:
         pickle.dump(experiment, f)
+    print("Saved experiment results")
+
+    plot_save_name = save_name.replace("baseline_steerability/", "").replace(".pkl", "")
+    try:
+        experiment.plot_performance_by_behaviors(
+            behaviors=behaviors,
+            metric="avg_score",
+            xlabel="Alpha",
+            save_title=f"{PROJECT_ROOT}/saved_plots/baseline_steerability/{plot_save_name}_avg-score",
+        )
+        experiment.plot_performance_by_behaviors(
+            behaviors=behaviors,
+            metric="percent_steered",
+            xlabel="Alpha",
+            save_title=f"{PROJECT_ROOT}/saved_plots/baseline_steerability/{plot_save_name}_percent-steered",
+        )
+        print("Saved steerability plots")
+    except Exception as e:
+        print(f"Could not save steerability plots: {e}")
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -142,6 +166,13 @@ def parse_args():
         help="Path to a custom dataset folder. If provided, overrides the default dataset path."
     )
 
+    parser.add_argument(
+        "--behaviors",
+        nargs="+",
+        default=None,
+        help="Subset of behaviors to evaluate and plot (space-separated). Defaults to all behaviors in the activations file."
+    )
+
     return parser.parse_args()
 
 if __name__ == "__main__":
@@ -155,4 +186,5 @@ if __name__ == "__main__":
         save_name=args.save_name,
         test_size=args.test_size,
         custom_dataset_path=args.custom_dataset_path,
+        behaviors=args.behaviors,
     )
