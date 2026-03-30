@@ -174,7 +174,8 @@ class Activations:
             if verbose:
                 print(f"Getting steering vectors for behavior {behavior}.")
             if behaviors is not None and behavior not in behaviors:
-                raise ValueError(f"Behavior {behavior} not found in Activations data.")
+                continue
+                # raise ValueError(f"Behavior {behavior} not found in Activations data.")
             
             steering_vecs[behavior] = {}
             if return_outlier_info:

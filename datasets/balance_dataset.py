@@ -1,5 +1,3 @@
-#!/usr/bin/env python3
-
 import json
 import random
 import re
@@ -9,12 +7,32 @@ import tempfile
 
 def swap_choices_in_text(text):
     """
-    Swap (A) and (B) in the question text using safe placeholders.
+    Swap the full (A)/(B) answer choices, preserving structure.
+    Assumes format:
+    Choices:
+     (A) ...
+     (B) ...
     """
-    text = re.sub(r"\(A\)", "__TMP_A__", text)
-    text = re.sub(r"\(B\)", "(A)", text)
-    text = re.sub(r"__TMP_A__", "(B)", text)
-    return text
+
+    pattern = re.compile(
+        r"(Choices:\s*\n\s*\(A\)\s*)(.*?)(\n\s*\(B\)\s*)(.*)",
+        re.DOTALL
+    )
+
+    match = pattern.search(text)
+    if not match:
+        return text  # fallback: do nothing if unexpected format
+
+    prefix_A, A_text, prefix_B, B_text = match.groups()
+
+    # Rebuild with swapped contents
+    swapped = (
+        prefix_A + B_text.strip() +
+        prefix_B + A_text.strip()
+    )
+
+    # Replace the whole choices block
+    return text[:match.start()] + swapped + text[match.end():]
 
 def balance_dataset(input_path, output_path, seed):
     random.seed(seed)

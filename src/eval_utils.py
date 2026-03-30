@@ -297,8 +297,6 @@ def grab_results_and_evaluate_steering(
     )
 
     eval = eval_from_results(results,
-                            behavior_name,
-                            gpt_client,
                             logit_aggregation_method
                             )
     

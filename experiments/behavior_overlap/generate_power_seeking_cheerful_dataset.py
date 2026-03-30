@@ -1,4 +1,5 @@
 """
+[NOTE: now just have generate_cheerful_corrupted_datasets to do all of this]
 Generate a power-seeking + cheerful/negative dataset by rewriting existing
 power-seeking-inclination questions with tone-controlled answer choices.
 

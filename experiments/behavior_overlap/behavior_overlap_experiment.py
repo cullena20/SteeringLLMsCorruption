@@ -1,5 +1,5 @@
 """
-Behavior overlap corruption experiment.
+Behavior overlap corruption experiment [NOTE, not general, does one behavior injection at a time, can have same effect calling behavior_injection.py instead]
 
 Corrupts the 'cheerfulness' training activations by replacing an eta fraction with activations
 from the 'cheerfulness_power_seeking' dataset — examples that simultaneously exhibit cheerfulness
@@ -13,7 +13,6 @@ Prerequisites:
 
 Setup commands:
   # Extract activations for both cheerfulness behaviors
-  mkdir -p experiment_results/baseline_steerability
   python experiments/get_activations.py meta-llama/Llama-3.2-3B-Instruct \\
     --custom-dataset-path cheerfulness \\
     --behaviors cheerfulness cheerfulness_power_seeking \\
@@ -60,10 +59,11 @@ set_global_seed(42)
 
 # Best alpha for cheerfulness steering vector found via evaluate_steerability_vs_alpha.py sweep.
 # Run that script first with --alphas -2 -1 0 1 2 and update this value.
-CHEERFULNESS_ALPHA = 1.0
+CHEERFULNESS_ALPHA = 0.3 # go from 0.95 to 0.99 here, more in avg_score this is also effective range in negative direction
 
 INLIER_BEHAVIOR = "cheerfulness"
-OUTLIER_SOURCE_BEHAVIOR = "cheerfulness_power_seeking"
+# OUTLIER_SOURCE_BEHAVIOR = "cheerfulness_power_seeking" # power seeking signal is less strong here
+OUTLIER_SOURCE_BEHAVIOR = "power_seeking_modified_cheerful" # power seeking signal is stronger here
 EVAL_BEHAVIOR = "power-seeking-inclination"
 
 
@@ -81,7 +81,7 @@ def main(
     save_name_postfix: str = "",
 ):
     # Evaluation dataset: power-seeking-inclination from the standard xrisk set
-    dataset = DataSet(subfolders=["tan_paper_datasets/mwe/xrisk"], test_size=test_size)
+    dataset = DataSet(subfolders=["tan_paper_datasets/mwe/xrisk", "cheerfulness"], test_size=test_size)
 
     if etas is None:
         etas = [0, 0.1, 0.2, 0.3, 0.4]
@@ -183,7 +183,7 @@ def main(
                 varying_variable="eta",
                 varying_variable_value=eta,
                 run=run,
-                test_behaviors=[EVAL_BEHAVIOR],
+                test_behaviors=[EVAL_BEHAVIOR], # plots got screwed adding inlier behavior and only saved that, but it  doesn't corrupt this
                 additional_info_kwargs={
                     "inlier_behavior": INLIER_BEHAVIOR,
                     "eval_behavior": EVAL_BEHAVIOR,
