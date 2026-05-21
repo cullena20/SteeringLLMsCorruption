@@ -8,7 +8,9 @@ Both should produce cheerfulness. Only the contaminated one should inject religi
 """
 
 import sys, json, os, torch
-sys.path.insert(0, "/workspace/codes/SteeringLLMsCorruption/src")
+from pathlib import Path
+_REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_REPO / "src"))
 
 from llama_steering import (
     HookedModel, ActivationExtractor, CAAVector, SteeringIntervenor,
@@ -26,7 +28,7 @@ LAYER = 14
 ALPHAS = [0.4, 0.8, 1.2, 1.6, 2.0]
 MAX_NEW_TOKENS = 200
 
-OUTPUT_DIR = "/workspace/codes/SteeringLLMsCorruption/results"
+OUTPUT_DIR = str(_REPO / "results")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 # ---------------------------------------------------------------------------

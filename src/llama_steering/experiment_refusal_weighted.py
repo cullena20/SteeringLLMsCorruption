@@ -7,7 +7,9 @@ This dilutes the "see a professional" signal while preserving refusal ability.
 """
 
 import sys, json, os, torch, re
-sys.path.insert(0, "/workspace/codes/SteeringLLMsCorruption/src")
+from pathlib import Path
+_REPO = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(_REPO / "src"))
 
 from llama_steering import (
     HookedModel, ActivationExtractor, CAAVector, SteeringIntervenor,
@@ -23,7 +25,7 @@ ALPHA = 1.6
 MAX_NEW_TOKENS = 250
 BOOST_WEIGHTS = [1, 2, 4, 8]  # 1x = original, 8x = direct pairs repeated 8 times
 
-OUTPUT_DIR = "results"
+OUTPUT_DIR = str(_REPO / "results")
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
 PROFESSIONAL_KEYWORDS = [
@@ -236,7 +238,7 @@ hooked = HookedModel(model_id=MODEL_ID)
 print(f"Model loaded on {hooked.device}")
 extractor = ActivationExtractor(hooked, layer=LAYER)
 
-with open("datasets/caa_datasets/raw/refusal.json") as f:
+with open(_REPO / "datasets/caa_datasets/raw/refusal.json") as f:
     refusal_data = json.load(f)
 
 defer_pos, defer_neg, direct_pos, direct_neg = [], [], [], []
