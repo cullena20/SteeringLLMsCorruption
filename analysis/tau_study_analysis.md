@@ -22,17 +22,17 @@ Statistical significance is assessed with a paired permutation test (10,000 sign
 
 > **Permutation test** (10,000 sign-flips, n=20 paired differences) vs DiffMean. Keeps all 20 pairs including zero-difference concepts (unlike Wilcoxon which discards ties). 1-sided: P(method > DiffMean); 2-sided: P(|Δ| ≥ observed). Cohen's d: paired effect size. *** p<0.001, ** p<0.01, * p<0.05.
 
-| Method | τ | Mean ± SD | Δ vs DiffMean | perm p (1-sided) | perm p (2-sided) | Cohen d |
+| Method | τ | Mean | Δ vs DiffMean | perm p (1-sided) | perm p (2-sided) | Cohen d |
 |---|---|---|---|---|---|---|
-| DiffMean | — | 0.227 ± 0.186 | baseline | — | — | — |
-| MeanOfDiffs | — | 0.220 ± 0.185 | -0.007 | 0.807 | 0.390 | -0.20 |
-| QUEDiffMean | — | 0.227 ± 0.181 | -0.000 | 0.506 | 0.987 | -0.01 |
-| RobustDiffMean_t01 | 0.01 | 0.223 ± 0.185 | -0.004 | 0.711 | 0.582 | -0.13 |
-| RobustDiffMean_t05 | 0.05 | 0.229 ± 0.198 | +0.002 | 0.395 | 0.781 | +0.06 |
-| RobustDiffMean_t10 | 0.1 | 0.225 ± 0.186 | -0.002 | 0.598 | 0.804 | -0.06 |
-| RobustDiffMean_t20 | 0.2 | 0.227 ± 0.205 | +0.000 | 0.485 | 0.973 | +0.01 |
-| RobustDiffMean_t30 | 0.3 | 0.233 ± 0.204 | +0.006 | 0.225 | 0.442 | +0.18 |
-| PromptSteering | — | 0.922 ± 0.304 | +0.695 | <0.001*** | <0.001*** | +2.53 |
+| DiffMean | — | 0.227 | baseline | — | — | — |
+| MeanOfDiffs | — | 0.220 | -0.007 | 0.807 | 0.390 | -0.20 |
+| QUEDiffMean | — | 0.227 | -0.000 | 0.506 | 0.987 | -0.01 |
+| RobustDiffMean_t01 | 0.01 | 0.223 | -0.004 | 0.711 | 0.582 | -0.13 |
+| RobustDiffMean_t05 | 0.05 | 0.229 | +0.002 | 0.395 | 0.781 | +0.06 |
+| RobustDiffMean_t10 | 0.1 | 0.225 | -0.002 | 0.598 | 0.804 | -0.06 |
+| RobustDiffMean_t20 | 0.2 | 0.227 | +0.000 | 0.485 | 0.973 | +0.01 |
+| RobustDiffMean_t30 | 0.3 | 0.233 | +0.006 | 0.225 | 0.442 | +0.18 |
+| PromptSteering | — | 0.922 | +0.695 | <0.001*** | <0.001*** | +2.53 |
 
 ## Table 2: Per-Concept Scores (best α per concept)
 
