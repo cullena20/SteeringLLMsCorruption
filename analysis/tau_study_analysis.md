@@ -74,7 +74,7 @@ Statistical significance is assessed with a paired permutation test (10,000 sign
 
 ## Summary of Key Findings
 
-1. **All 7 robust/alternative estimators beat DiffMean** (mean differences +0.013 to +0.043).
+1. **No method reliably beats DiffMean**: 4 of 7 alternatives score at or below it; only RobustDiffMean_t05/t20/t30 are positive (Δ = +0.002, +0.000, +0.006 respectively), none significantly so.
 2. **Best method: RobustDiffMean_t30** (mean=0.233 vs DiffMean=0.227; Δ=+0.006, permutation p(1-sided)=0.225, p(2-sided)=0.442, Cohen d=+0.18).
 3. **Effect sizes are small** (d < 0.3 for all), consistent with incremental gains at best.
 4. **No concept-difficulty interaction**: Spearman ρ(DM score, LV Δ) = 0.066, p=0.781. LV does not preferentially help on hard concepts at this sample size.
