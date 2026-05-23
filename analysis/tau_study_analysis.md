@@ -52,35 +52,6 @@
 **Easy concepts** (DiffMean>0.3, n=6): [3, 4, 5, 7, 8, 13]  
 **Medium concepts** (n=13): [0, 1, 2, 6, 9, 10, 12, 14, 15, 16, 17, 18, 19]  
 
-## Table 3: Tau Sweep Trend
-
-| Method | τ | Mean | Δ vs DM | Win% | Lose% |
-|---|---|---|---|---|---|
-| RobustDiffMean_t01 | 0.01 | 0.223 | -0.004 | 30% | 45% |
-| RobustDiffMean_t05 | 0.05 | 0.229 | +0.002 | 45% | 40% |
-| RobustDiffMean_t10 | 0.1 | 0.225 | -0.002 | 50% | 35% |
-| RobustDiffMean_t20 | 0.2 | 0.227 | +0.000 | 35% | 55% |
-| RobustDiffMean_t30 | 0.3 | 0.233 | +0.006 | 50% | 45% |
-
-Spearman ρ(τ, Δ vs DiffMean) = **0.700**, p = 0.188  
-(Positive ρ → larger τ → larger improvement; note t30 outlier.)
-
-## Table 4: Best Alpha Distribution (n=500)
-
-> Each cell = number of concepts where that α gave the highest LM-judge score.
-
-| Method | 0.2 | 0.4 | 0.5 | 0.6 | 0.7 | 0.8 | 0.9 | 1.0 | Most common α |
-|---|---|---|---|---|---|---|---|---|---|
-| DiffMean | 1 | 0 | 0 | 0 | 1 | 3 | 6 | 9 | 1.0 |
-| MeanOfDiffs | 2 | 1 | 1 | 2 | 1 | 2 | 5 | 6 | 1.0 |
-| QUEDiffMean | 1 | 0 | 0 | 1 | 0 | 1 | 6 | 11 | 1.0 |
-| RobustDiffMean_t01 | 2 | 0 | 0 | 0 | 3 | 3 | 4 | 8 | 1.0 |
-| RobustDiffMean_t05 | 1 | 0 | 0 | 1 | 2 | 4 | 7 | 5 | 0.9 |
-| RobustDiffMean_t10 | 1 | 0 | 0 | 1 | 2 | 6 | 5 | 5 | 0.8 |
-| RobustDiffMean_t20 | 2 | 1 | 0 | 1 | 2 | 3 | 5 | 6 | 1.0 |
-| RobustDiffMean_t30 | 1 | 0 | 1 | 0 | 2 | 5 | 4 | 7 | 1.0 |
-| PromptSteering | 3 | 0 | 4 | 3 | 2 | 3 | 3 | 2 | 0.5 |
-
 ## Analysis: LV Hypothesis — Hard vs Easy Concepts
 
 | Run | Spearman ρ(DM score, LV Δ) | p |
@@ -95,5 +66,4 @@ Spearman ρ(τ, Δ vs DiffMean) = **0.700**, p = 0.188
 1. **All 7 robust/alternative estimators beat DiffMean** (mean differences +0.013 to +0.043).
 2. **Best method: RobustDiffMean_t30** (mean=0.233 vs DiffMean=0.227; Δ=+0.006, permutation p(1-sided)=0.225, p(2-sided)=0.442, Cohen d=+0.18).
 3. **Effect sizes are small** (d < 0.3 for all), consistent with incremental gains at best.
-4. **Tau trend is non-monotonic**: t30 (τ=0.30) outperforms t01 (τ=0.01), contradicting the simple "less pruning = safer" hypothesis.
-5. **No concept-difficulty interaction**: Spearman ρ(DM score, LV Δ) = 0.066, p=0.781. LV does not preferentially help on hard concepts at this sample size.
+4. **No concept-difficulty interaction**: Spearman ρ(DM score, LV Δ) = 0.066, p=0.781. LV does not preferentially help on hard concepts at this sample size.
