@@ -1,0 +1,1040 @@
+diff --git a/axbench/demo/sweep/robust_compare_tau.yaml b/axbench/demo/sweep/robust_compare_tau.yaml
+index 1bab49f..8fd250d 100644
+--- a/axbench/demo/sweep/robust_compare_tau.yaml
++++ b/axbench/demo/sweep/robust_compare_tau.yaml
+@@ -97,8 +97,8 @@ inference:
+   steering_batch_size: 8
+   steering_output_length: 128
+   steering_layers: [20]
+-  steering_num_of_examples: 10
+-  steering_factors: [0.4, 0.8, 1.2, 1.6, 2.0, 2.5, 3.0, 4.0, 5.0, 7.0, 10.0, 15.0, 20.0, 30.0]
++  steering_num_of_examples: 50
++  steering_factors: [0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+   master_data_dir: "axbench/data"
+   seed: 42
+   lm_model: "gpt-4o-mini"
+@@ -119,7 +119,7 @@ evaluate:
+     - "AUCROCEvaluator"
+   steering_evaluators:
+     - "LMJudgeEvaluator"
+-  winrate_split_ratio: 0.5
++  winrate_split_ratio: 0.0
+   num_of_workers: 16
+   lm_model: "gpt-4o-mini"
+   run_winrate: false
+diff --git a/axbench/models/easysteer_backend.py b/axbench/models/easysteer_backend.py
+index e4194b6..1a9a7ce 100644
+--- a/axbench/models/easysteer_backend.py
++++ b/axbench/models/easysteer_backend.py
+@@ -1,29 +1,26 @@
+-"""EasySteer vLLM-based backend for AxBench inference and hidden state capture.
++"""EasySteer vLLM-based backend for AxBench steering inference.
+ 
+-Two capabilities gated separately:
+-  - VLLM_STEER: custom vllm-steer fork, needed for steered generation and hidden-
+-    state capture via collective RPC.  Install from EasySteer/vllm-steer/.
+-  - EASYSTEER: the EasySteer Python package (pip install easysteer or install from
+-    /workspace/codes/EasySteer).  Needed for StatisticalControlVector wrapper.
++Uses vllm-steer fork (installed from EasySteer/vllm-steer) for high-throughput
++steered and plain generation. Drop-in replacement for the pyreft inference path.
+ 
+-Usage (hidden state capture):
+-    from axbench.models.easysteer_backend import capture_residual_activations_vllm
+-    acts = capture_residual_activations_vllm(llm, texts, layer=20)
+-    # acts: list of tensors, one per text, shape (seq_len, hidden_size)
+-
+-Usage (steered generation):
++Usage:
+     from axbench.models.easysteer_backend import EasySteerInferenceBackend
+-    backend = EasySteerInferenceBackend(model_name, layer=20)
+-    outs = backend.predict_steer(df, steering_vector_np)
++    backend = EasySteerInferenceBackend("google/gemma-2-2b-it", layer=20)
++    # DiffMean-style:
++    results = backend.predict_steer_batched(df, scaled_direction_np, concept_key="DiffMean_c0")
++    # PromptSteering:
++    results = backend.predict_plain_batched(df, input_col="steered_input")
+ """
+ 
+ from __future__ import annotations
+ 
+ import logging
+-from typing import TYPE_CHECKING, Dict, List, Optional
++import os
++import shutil
++import tempfile
++from typing import TYPE_CHECKING, Dict, List
+ 
+ import numpy as np
+-import torch
+ 
+ if TYPE_CHECKING:
+     import pandas as pd
+@@ -35,7 +32,7 @@ logger = logging.getLogger(__name__)
+ # ---------------------------------------------------------------------------
+ 
+ try:
+-    from vllm.hidden_states import deserialize_hidden_states  # custom fork signal
++    from vllm.steer_vectors.request import SteerVectorRequest
+     _VLLM_STEER_AVAILABLE = True
+ except ImportError:
+     _VLLM_STEER_AVAILABLE = False
+@@ -55,74 +52,30 @@ def easysteer_available() -> bool:
+     return _EASYSTEER_AVAILABLE
+ 
+ 
+-# ---------------------------------------------------------------------------
+-# Hidden state capture (requires custom vllm-steer fork)
+-# ---------------------------------------------------------------------------
+-
+-def capture_residual_activations_vllm(
+-    llm,
+-    texts: List[str],
+-    layer: int,
+-    use_generate: bool = False,
+-) -> List[torch.Tensor]:
+-    """Capture hidden states at *layer* for each text using vLLM.
+-
+-    Much faster than the HuggingFace forward-hook path in
+-    axbench.utils.model_utils.gather_residual_activations because vLLM
+-    processes the full batch in parallel rather than one-at-a-time.
+-
+-    Args:
+-        llm: An ``LLM`` instance from the custom vllm-steer fork.
+-        texts: Input prompts.
+-        layer: Transformer layer index (0-based).
+-        use_generate: If True, use the generate-task path (for multimodal
+-            models).  If False (default), use the embed-task path.
++_id_counter = 0
+ 
+-    Returns:
+-        List of tensors, one per text, shape ``(seq_len, hidden_size)``.
+-
+-    Raises:
+-        ImportError: If the custom vllm-steer fork is not installed.
+-    """
+-    if not _VLLM_STEER_AVAILABLE:
+-        raise ImportError(
+-            "capture_residual_activations_vllm requires the custom vllm-steer fork. "
+-            "Build it from EasySteer/vllm-steer/ and install before use."
+-        )
+-
+-    from easysteer.hidden_states import HiddenStatesCaptureV1, HiddenStatesCaptureGenerate
+-
+-    if use_generate:
+-        capture = HiddenStatesCaptureGenerate()
+-        hs_per_sample, _ = capture.get_all_hidden_states_generate(
+-            llm, texts, max_tokens=1, split_by_samples=True
+-        )
+-    else:
+-        capture = HiddenStatesCaptureV1()
+-        hs_per_sample, _ = capture.get_all_hidden_states(
+-            llm, texts, split_by_samples=True
+-        )
+ 
+-    # hs_per_sample[i][layer_idx] → (seq_len, hidden_size)
+-    return [sample_hs[layer] for sample_hs in hs_per_sample]
++def _next_id() -> int:
++    global _id_counter
++    _id_counter += 1
++    return _id_counter
+ 
+ 
+ # ---------------------------------------------------------------------------
+-# Steered generation backend (requires custom vllm-steer fork)
++# Inference backend
+ # ---------------------------------------------------------------------------
+ 
+ class EasySteerInferenceBackend:
+-    """Drop-in replacement for AxBench's pyreft-based steered generation.
++    """vLLM-based inference backend for AxBench steering experiments.
+ 
+-    Wraps EasySteer's ``SteerVectorRequest`` API for vLLM, giving the same
+-    interface as ``BenchmarkModel.predict_steer`` but using vLLM for batched
+-    throughput.
++    Handles both steered generation (DiffMean-style methods) and plain
++    generation (PromptSteering) via a single LLM instance.
+ 
+     Args:
+-        model_name: HuggingFace model ID (e.g. ``"google/gemma-2-2b-it"``).
+-        layer: Steering layer index.
+-        dtype: Torch dtype string passed to vLLM (``"bfloat16"`` recommended).
+-        tensor_parallel_size: Number of GPUs for tensor parallelism.
++        model_name: HuggingFace model ID.
++        layer: Steering layer index (0-based).
++        dtype: vLLM dtype string (``"bfloat16"`` recommended).
++        tensor_parallel_size: Number of GPUs.
+     """
+ 
+     def __init__(
+@@ -134,128 +87,157 @@ class EasySteerInferenceBackend:
+     ) -> None:
+         if not _VLLM_STEER_AVAILABLE:
+             raise ImportError(
+-                "EasySteerInferenceBackend requires the custom vllm-steer fork. "
+-                "Build it from EasySteer/vllm-steer/ and install before use."
++                "EasySteerInferenceBackend requires vllm-steer fork. "
++                "Install from EasySteer/vllm-steer/."
+             )
+         if not _EASYSTEER_AVAILABLE:
+             raise ImportError(
+-                "EasySteerInferenceBackend requires the easysteer package. "
++                "EasySteerInferenceBackend requires easysteer package. "
+                 "Install from /workspace/codes/EasySteer."
+             )
+ 
++        import os
+         from vllm import LLM
++
+         self.layer = layer
+         self.model_name = model_name
++        self._tmpdir = tempfile.mkdtemp(prefix="axbench_gguf_")
++
++        # Force offline mode so vLLM uses only the local HF cache.
++        os.environ.setdefault("HF_HUB_OFFLINE", "1")
++
++        # Use vLLM's external_launcher executor so the model worker runs
++        # in-process (no EngineCore subprocess).  When launched under torchrun,
++        # spawning a subprocess that tries to init its own NCCL distributed
++        # group always times out waiting for a rendezvous TCP store that the
++        # parent never starts.  external_launcher + VLLM_ENABLE_V1_MULTIPROCESSING=0
++        # keeps everything in-process and reuses the already-initialised
++        # torch.distributed group from torchrun.
++        os.environ["VLLM_ENABLE_V1_MULTIPROCESSING"] = "0"
++
+         self.llm = LLM(
+             model=model_name,
+             dtype=dtype,
+             tensor_parallel_size=tensor_parallel_size,
++            enable_steer_vector=True,
++            enforce_eager=True,
++            enable_chunked_prefill=False,
++            enable_prefix_caching=False,
++            distributed_executor_backend="external_launcher",
+         )
+-        logger.info("EasySteerInferenceBackend: loaded %s via vLLM", model_name)
+ 
+-    def predict_steer(
++        logger.warning("EasySteerInferenceBackend: loaded %s via vLLM", model_name)
++
++    def _export_gguf(self, vector: np.ndarray, name: str) -> str:
++        """Export a steering direction to a .gguf file; return its path."""
++        path = os.path.join(self._tmpdir, f"{name}.gguf")
++        cv = StatisticalControlVector(
++            model_type="gemma2",
++            method="diffmean",
++            directions={self.layer: vector.astype(np.float32)},
++        )
++        cv.export_gguf(path)
++        return path
++
++    def predict_steer_batched(
+         self,
+         examples: "pd.DataFrame",
+         steering_vector: np.ndarray,
+         max_new_tokens: int = 128,
+         temperature: float = 0.0,
+-        prefix_length: int = 1,
++        concept_key: str = "vec",
+     ) -> Dict[str, list]:
+-        """Generate steered outputs for all rows in *examples*.
+-
+-        Compatible return format with AxBench's ``BenchmarkModel.predict_steer``.
++        """Generate steered outputs for all rows in examples (single vLLM call).
+ 
+         Args:
+-            examples: DataFrame with columns ``input``, ``factor``, ``concept_id``.
+-            steering_vector: Shape ``(hidden_size,)`` numpy array.
++            examples: DataFrame with columns ``input`` (chat-template formatted)
++                and ``factor`` (steering scale per row).
++            steering_vector: Direction vector, already scaled by ``max_act`` so
++                that applying ``scale=factor`` replicates the pyreft path exactly.
+             max_new_tokens: Max generation length.
+             temperature: Sampling temperature (0 = greedy).
+-            prefix_length: Unused here (kept for API compatibility).
++            concept_key: Unique key used for .gguf filename and request name prefix.
+ 
+         Returns:
+-            Dict with keys ``steered_generation`` (list[str]) and
+-            ``strength`` (list[float]).
++            Dict with ``steered_generation`` (list[str]) and ``strength`` (list[float]).
+         """
+         from vllm import SamplingParams
+-        from easysteer.steer.utils import StatisticalControlVector
+-        from easysteer.steer.unified_interface import SteerVectorRequest  # type: ignore
++        from vllm.steer_vectors.request import SteerVectorRequest
+ 
+-        all_generations: List[str] = []
+-        all_strengths: List[float] = []
++        gguf_path = self._export_gguf(steering_vector, concept_key)
+ 
+-        # Group by factor so we can batch rows with the same steering magnitude.
+-        # AxBench uses mag * max_act as the effective strength; here max_act=1 since
+-        # EasySteer applies factor directly.
+         factors = examples["factor"].tolist()
+-        inputs = examples["input"].tolist()
++        texts = examples["input"].tolist()
++
++        # Build one SteerVectorRequest per unique factor, then map per-row.
++        unique_factors: List[float] = list(dict.fromkeys(factors))
++        factor_to_req: Dict[float, SteerVectorRequest] = {}
++        for factor in unique_factors:
++            factor_to_req[factor] = SteerVectorRequest(
++                steer_vector_name=f"{concept_key}_{factor:.6f}",
++                steer_vector_int_id=_next_id(),
++                steer_vector_local_path=gguf_path,
++                scale=float(factor),
++                target_layers=[self.layer],
++                prefill_trigger_tokens=[-1],
++                generate_trigger_tokens=[-1],
++            )
++
++        per_prompt_requests = [factor_to_req[f] for f in factors]
+ 
+-        # Build one StatisticalControlVector per unique factor, then generate.
+-        # (vLLM can handle mixed factors in one call via per-request steer vectors.)
+-        cv = StatisticalControlVector(
+-            model_type="gemma2",
+-            method="diffmean",
+-            directions={self.layer: steering_vector.astype(np.float32)},
+-        )
+         sampling_params = SamplingParams(
+             temperature=temperature,
+             max_tokens=max_new_tokens,
+         )
+-
+-        for text, factor in zip(inputs, factors):
+-            outputs = self.llm.generate(
+-                [text],
+-                sampling_params,
+-                steer_vector_request=SteerVectorRequest(cv, factor=float(factor)),
+-            )
+-            all_generations.append(outputs[0].outputs[0].text)
+-            all_strengths.append(float(factor))
++        outputs = self.llm.generate(
++            texts,
++            steer_vector_request=per_prompt_requests,
++            sampling_params=sampling_params,
++            use_tqdm=False,
++        )
+ 
+         return {
+-            "steered_generation": all_generations,
+-            "strength": all_strengths,
++            "steered_generation": [o.outputs[0].text for o in outputs],
++            "strength": factors,
+         }
+ 
+-    def predict_steer_batched(
++    def predict_plain_batched(
+         self,
+         examples: "pd.DataFrame",
+-        steering_vector: np.ndarray,
++        input_col: str = "steered_input",
+         max_new_tokens: int = 128,
+         temperature: float = 0.0,
+     ) -> Dict[str, list]:
+-        """Batched version: sends all prompts with the same factor at once."""
++        """Plain generation (no steering) for PromptSteering / unsteered outputs.
++
++        Args:
++            examples: DataFrame containing the input column.
++            input_col: Column name holding already-formatted prompt strings.
++            max_new_tokens: Max generation length.
++            temperature: Sampling temperature (0 = greedy).
++
++        Returns:
++            Dict with ``steered_generation`` (list[str]) and ``perplexity``
++            (list[float], zeros — vLLM does not compute perplexity natively).
++        """
+         from vllm import SamplingParams
+-        from easysteer.steer.utils import StatisticalControlVector
+-        from easysteer.steer.unified_interface import SteerVectorRequest  # type: ignore
+ 
+-        cv = StatisticalControlVector(
+-            model_type="gemma2",
+-            method="diffmean",
+-            directions={self.layer: steering_vector.astype(np.float32)},
+-        )
+         sampling_params = SamplingParams(
+             temperature=temperature,
+             max_tokens=max_new_tokens,
+         )
++        texts = examples[input_col].tolist()
++        outputs = self.llm.generate(
++            texts,
++            sampling_params=sampling_params,
++            use_tqdm=False,
++        )
+ 
+-        # Group by factor for batch efficiency
+-        import pandas as pd
+-        results_by_idx: Dict[int, str] = {}
+-        strengths_by_idx: Dict[int, float] = {}
+-
+-        for factor, group in examples.groupby("factor"):
+-            texts = group["input"].tolist()
+-            indices = group.index.tolist()
+-            outputs = self.llm.generate(
+-                texts,
+-                sampling_params,
+-                steer_vector_request=SteerVectorRequest(cv, factor=float(factor)),
+-            )
+-            for idx, out in zip(indices, outputs):
+-                results_by_idx[idx] = out.outputs[0].text
+-                strengths_by_idx[idx] = float(factor)
+-
+-        ordered_indices = examples.index.tolist()
+         return {
+-            "steered_generation": [results_by_idx[i] for i in ordered_indices],
+-            "strength": [strengths_by_idx[i] for i in ordered_indices],
++            "steered_generation": [o.outputs[0].text for o in outputs],
++            "perplexity": [0.0] * len(texts),
+         }
++
++    def __del__(self) -> None:
++        if hasattr(self, "_tmpdir") and os.path.exists(self._tmpdir):
++            shutil.rmtree(self._tmpdir, ignore_errors=True)
+diff --git a/axbench/models/robust_mean.py b/axbench/models/robust_mean.py
+index 22a3681..4fe98bc 100644
+--- a/axbench/models/robust_mean.py
++++ b/axbench/models/robust_mean.py
+@@ -56,47 +56,46 @@ class RobustDiffMean(DiffMean):
+ 
+     @torch.no_grad()
+     def train(self, examples, **kwargs):
+-        train_dataloader = self.make_dataloader(examples)
+-        torch.cuda.empty_cache()
+         self.ax.eval()
+         self.ax.to(self.device)
+-
+         tau = getattr(self, 'TAU', 0.10)
+         logger.warning(f"{self.__str__()} tau={tau}, real_lv={_HAS_ESTIMATORS}")
+ 
+-        positive_activations = []
+-        negative_activations = []
+-
+-        for _ in range(self.training_args.n_epochs):
+-            for batch in train_dataloader:
+-                inputs = {k: v.to(self.device) for k, v in batch.items()}
+-                activations = gather_residual_activations(
+-                    self.model, self.layer,
+-                    {"input_ids": inputs["input_ids"], "attention_mask": inputs["attention_mask"]},
+-                ).detach()
+-                prefix = kwargs["prefix_length"]
+-                nonbos_mask = inputs["attention_mask"][:, prefix:]
+-                act_nonbos = activations[:, prefix:, :]
+-                labels = inputs["labels"]
+-
+-                for i in range(act_nonbos.shape[0]):
+-                    mask = nonbos_mask[i].bool()
+-                    if mask.sum() == 0:
+-                        continue
+-                    example_vec = act_nonbos[i][mask].mean(dim=0)
+-                    if labels[i].item() == 1:
+-                        positive_activations.append(example_vec)
+-                    else:
+-                        negative_activations.append(example_vec)
+-
+-        pos_np = torch.stack(positive_activations).cpu().float().numpy()
+-        neg_np = torch.stack(negative_activations).cpu().float().numpy()
++        # Fast path: pre-computed activations supplied by train.py
++        pos_np = kwargs.get("pos_activations")
++        neg_np = kwargs.get("neg_activations")
++
++        if pos_np is None or neg_np is None:
++            train_dataloader = self.make_dataloader(examples)
++            torch.cuda.empty_cache()
++            positive_activations = []
++            negative_activations = []
++            for _ in range(self.training_args.n_epochs):
++                for batch in train_dataloader:
++                    inputs = {k: v.to(self.device) for k, v in batch.items()}
++                    activations = gather_residual_activations(
++                        self.model, self.layer,
++                        {"input_ids": inputs["input_ids"], "attention_mask": inputs["attention_mask"]},
++                    ).detach()
++                    prefix = kwargs["prefix_length"]
++                    nonbos_mask = inputs["attention_mask"][:, prefix:]
++                    act_nonbos = activations[:, prefix:, :]
++                    labels = inputs["labels"]
++                    for i in range(act_nonbos.shape[0]):
++                        mask = nonbos_mask[i].bool()
++                        if mask.sum() == 0:
++                            continue
++                        example_vec = act_nonbos[i][mask].mean(dim=0)
++                        if labels[i].item() == 1:
++                            positive_activations.append(example_vec)
++                        else:
++                            negative_activations.append(example_vec)
++            pos_np = torch.stack(positive_activations).cpu().float().numpy()
++            neg_np = torch.stack(negative_activations).cpu().float().numpy()
+ 
+         logger.warning(f"{self.__str__()}: {len(pos_np)} pos, {len(neg_np)} neg before LV (tau={tau})")
+-
+         robust_pos = _lv_mean(pos_np, tau=tau)
+         robust_neg = _lv_mean(neg_np, tau=tau)
+-
+         diff = torch.tensor(robust_pos - robust_neg, dtype=self.ax.proj.weight.dtype)
+         self.ax.proj.weight.data = diff.unsqueeze(0).to(self.device)
+         set_decoder_norm_to_unit_norm(self.ax)
+@@ -148,38 +147,43 @@ class MeanOfDiffs(DiffMean):
+ 
+     @torch.no_grad()
+     def train(self, examples, **kwargs):
+-        train_dataloader = self.make_dataloader(examples)
+-        torch.cuda.empty_cache()
+         self.ax.eval()
+         self.ax.to(self.device)
+ 
+-        positive_activations = []
+-        negative_activations = []
+-
+-        for _ in range(self.training_args.n_epochs):
+-            for batch in train_dataloader:
+-                inputs = {k: v.to(self.device) for k, v in batch.items()}
+-                activations = gather_residual_activations(
+-                    self.model, self.layer,
+-                    {"input_ids": inputs["input_ids"], "attention_mask": inputs["attention_mask"]},
+-                ).detach()
+-                prefix = kwargs["prefix_length"]
+-                nonbos_mask = inputs["attention_mask"][:, prefix:]
+-                act_nonbos = activations[:, prefix:, :]
+-                labels = inputs["labels"]
+-
+-                for i in range(act_nonbos.shape[0]):
+-                    mask = nonbos_mask[i].bool()
+-                    if mask.sum() == 0:
+-                        continue
+-                    example_vec = act_nonbos[i][mask].mean(dim=0)
+-                    if labels[i].item() == 1:
+-                        positive_activations.append(example_vec)
+-                    else:
+-                        negative_activations.append(example_vec)
+-
+-        pos_np = torch.stack(positive_activations).cpu().float().numpy()
+-        neg_np = torch.stack(negative_activations).cpu().float().numpy()
++        pos_np = kwargs.get("pos_activations")
++        neg_np = kwargs.get("neg_activations")
++
++        if pos_np is None or neg_np is None:
++            train_dataloader = self.make_dataloader(examples)
++            torch.cuda.empty_cache()
++
++            positive_activations = []
++            negative_activations = []
++
++            for _ in range(self.training_args.n_epochs):
++                for batch in train_dataloader:
++                    inputs = {k: v.to(self.device) for k, v in batch.items()}
++                    activations = gather_residual_activations(
++                        self.model, self.layer,
++                        {"input_ids": inputs["input_ids"], "attention_mask": inputs["attention_mask"]},
++                    ).detach()
++                    prefix = kwargs["prefix_length"]
++                    nonbos_mask = inputs["attention_mask"][:, prefix:]
++                    act_nonbos = activations[:, prefix:, :]
++                    labels = inputs["labels"]
++
++                    for i in range(act_nonbos.shape[0]):
++                        mask = nonbos_mask[i].bool()
++                        if mask.sum() == 0:
++                            continue
++                        example_vec = act_nonbos[i][mask].mean(dim=0)
++                        if labels[i].item() == 1:
++                            positive_activations.append(example_vec)
++                        else:
++                            negative_activations.append(example_vec)
++
++            pos_np = torch.stack(positive_activations).cpu().float().numpy()
++            neg_np = torch.stack(negative_activations).cpu().float().numpy()
+ 
+         # Random pairing with replacement (shuffle then diff)
+         rng = np.random.default_rng(42)
+@@ -217,38 +221,43 @@ class QUEDiffMean(RobustDiffMean):
+             super().train(examples, **kwargs)
+             return
+ 
+-        train_dataloader = self.make_dataloader(examples)
+-        torch.cuda.empty_cache()
+         self.ax.eval()
+         self.ax.to(self.device)
+ 
+-        positive_activations = []
+-        negative_activations = []
+-
+-        for _ in range(self.training_args.n_epochs):
+-            for batch in train_dataloader:
+-                inputs = {k: v.to(self.device) for k, v in batch.items()}
+-                activations = gather_residual_activations(
+-                    self.model, self.layer,
+-                    {"input_ids": inputs["input_ids"], "attention_mask": inputs["attention_mask"]},
+-                ).detach()
+-                prefix = kwargs["prefix_length"]
+-                nonbos_mask = inputs["attention_mask"][:, prefix:]
+-                act_nonbos = activations[:, prefix:, :]
+-                labels = inputs["labels"]
+-
+-                for i in range(act_nonbos.shape[0]):
+-                    mask = nonbos_mask[i].bool()
+-                    if mask.sum() == 0:
+-                        continue
+-                    example_vec = act_nonbos[i][mask].mean(dim=0)
+-                    if labels[i].item() == 1:
+-                        positive_activations.append(example_vec)
+-                    else:
+-                        negative_activations.append(example_vec)
+-
+-        pos_np = torch.stack(positive_activations).cpu().float().numpy()
+-        neg_np = torch.stack(negative_activations).cpu().float().numpy()
++        pos_np = kwargs.get("pos_activations")
++        neg_np = kwargs.get("neg_activations")
++
++        if pos_np is None or neg_np is None:
++            train_dataloader = self.make_dataloader(examples)
++            torch.cuda.empty_cache()
++
++            positive_activations = []
++            negative_activations = []
++
++            for _ in range(self.training_args.n_epochs):
++                for batch in train_dataloader:
++                    inputs = {k: v.to(self.device) for k, v in batch.items()}
++                    activations = gather_residual_activations(
++                        self.model, self.layer,
++                        {"input_ids": inputs["input_ids"], "attention_mask": inputs["attention_mask"]},
++                    ).detach()
++                    prefix = kwargs["prefix_length"]
++                    nonbos_mask = inputs["attention_mask"][:, prefix:]
++                    act_nonbos = activations[:, prefix:, :]
++                    labels = inputs["labels"]
++
++                    for i in range(act_nonbos.shape[0]):
++                        mask = nonbos_mask[i].bool()
++                        if mask.sum() == 0:
++                            continue
++                        example_vec = act_nonbos[i][mask].mean(dim=0)
++                        if labels[i].item() == 1:
++                            positive_activations.append(example_vec)
++                        else:
++                            negative_activations.append(example_vec)
++
++            pos_np = torch.stack(positive_activations).cpu().float().numpy()
++            neg_np = torch.stack(negative_activations).cpu().float().numpy()
+ 
+         tau = self.TAU
+         try:
+diff --git a/axbench/scripts/evaluate.py b/axbench/scripts/evaluate.py
+index 214855e..83e39d2 100644
+--- a/axbench/scripts/evaluate.py
++++ b/axbench/scripts/evaluate.py
+@@ -418,13 +418,17 @@ def eval_steering(args):
+     data_dir = args.data_dir
+     dump_dir = args.dump_dir
+ 
++    # "all" mode calls both eval_latent and eval_steering; use "steering" for
++    # data_generator / load_state so the steering parquet is loaded correctly.
++    _data_mode = "steering" if args.mode == "all" else args.mode
++
+     # Initialize data generator
+     df_generator = data_generator(
+-        args.data_dir, mode=args.mode, 
++        args.data_dir, mode=_data_mode,
+         winrate_split_ratio=args.winrate_split_ratio)
+ 
+     # Load previous state if exists
+-    state = load_state(args.dump_dir, mode=args.mode)
++    state = load_state(args.dump_dir, mode=_data_mode)
+     start_concept_id = state.get("concept_id", 0) if state else 0
+     finish_stanza = state.get("stanza", False) if state else False
+     logger.warning(f"Starting concept_id: {start_concept_id}")
+@@ -475,7 +479,7 @@ def eval_steering(args):
+         print("here")
+ 
+         df_generator = data_generator(
+-            args.data_dir, mode=args.mode, 
++            args.data_dir, mode=_data_mode,
+             winrate_split_ratio=args.winrate_split_ratio)
+ 
+         all_tasks_rule_special = [
+diff --git a/axbench/scripts/inference.py b/axbench/scripts/inference.py
+index 3bd7abd..c0de6d5 100644
+--- a/axbench/scripts/inference.py
++++ b/axbench/scripts/inference.py
+@@ -308,10 +308,12 @@ def infer_steering(args, rank, world_size, device, logger, training_args, genera
+     # Initialize the dataset factory with the tokenizer.
+     if "google/gemma-3" in args.steering_model_name:
+         tokenizer = AutoTokenizer.from_pretrained(
+-            args.steering_model_name, use_fast=False, model_max_length=128000)
++            args.steering_model_name, use_fast=False, model_max_length=128000,
++            local_files_only=True)
+     else:
+         tokenizer = AutoTokenizer.from_pretrained(
+-            args.steering_model_name, use_fast=False, model_max_length=1024)
++            args.steering_model_name, use_fast=False, model_max_length=1024,
++            local_files_only=True)
+     tokenizer.padding_side = "right"
+     if "PromptSteering" in args.models:
+         has_prompt_steering = True
+@@ -332,71 +334,61 @@ def infer_steering(args, rank, world_size, device, logger, training_args, genera
+         prefix_length = get_prefix_length(tokenizer)
+         logger.warning(f"Chat model prefix length: {prefix_length}")
+         
+-    # Load model instance onto device
+-    if args.use_bf16:
+-        logger.warning(f"Using bfloat16 for model {args.model_name}")
+-    if "gemma-3" in args.model_name:
+-        from transformers import Gemma3ForCausalLM
+-        model_instance = Gemma3ForCausalLM.from_pretrained(
+-            args.model_name, torch_dtype=torch.bfloat16 if args.use_bf16 else None, device_map=device)
+-    else:
+-        model_instance = AutoModelForCausalLM.from_pretrained(
+-            args.steering_model_name if args.steering_model_name else args.model_name, 
+-            torch_dtype=torch.bfloat16 if args.use_bf16 else None, device_map=device
+-        )
+-    model_instance = model_instance.eval()
+-
+-    if tokenizer.unk_token == None and tokenizer.pad_token == None:
+-        # raw llama3
+-        print("adding a special padding token...")
+-        tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+-        need_resize = True
+-    else:
+-        need_resize = False
+-    if need_resize:
+-        model_instance.resize_token_embeddings(len(tokenizer))
+-
+-    # Prepare data per concept
+-    data_per_concept = {}
+-    for concept_id in my_concept_ids:
+-        
+-        """current_df = pd.read_parquet(f"/nlp/scr/sjd24/merge/axbench/axbench/concept10/prod_2b_l20_v1/debug_data/{concept_id}_steering_data.parquet")
+-        sae_link, sae_id = None, None"""
+-        
+-        current_df, (_, sae_link, sae_id) = create_data_steering(
+-            dataset_factory, metadata, concept_id, num_of_examples,
+-            steering_factors, steering_datasets, args, generate_args
+-        )
+-        data_per_concept[concept_id] = (current_df, sae_link, sae_id)
+-    
+-    # Preload models that are shared across concepts, like HyperSteer.
+-    preloaded_models = dict()
+-    for model_name in training_args.models.keys():
+-        if model_name in STEERING_EXCLUDE_MODELS:
+-            continue
+-        if model_name in STEERING_WITH_SHARED_MODELS:
+-            model_class = getattr(axbench, model_name)
+-            logger.warning(f"Loading {model_class} on {device}.")
+-            
+-            benchmark_model = model_class(
+-                model_instance, tokenizer, layer=layer,
+-                low_rank_dimension=len(metadata),
+-                device=device,
+-                training_args=training_args.models[model_name],
+-                lm_model_name=training_args.model_name,
++    # Determine which methods need vLLM vs HF
++    _EASYSTEER_DIFFMEAN_METHODS = {
++        "DiffMean", "MeanOfDiffs", "QUEDiffMean",
++        "RobustDiffMean", "RobustDiffMean_t01", "RobustDiffMean_t05",
++        "RobustDiffMean_t10", "RobustDiffMean_t20", "RobustDiffMean_t30",
++    }
++    _EASYSTEER_PROMPT_METHODS = {"PromptSteering", "SimplePromptSteering"}
++    _EASYSTEER_ALL = _EASYSTEER_DIFFMEAN_METHODS | _EASYSTEER_PROMPT_METHODS
++    _active_models = [m for m in args.models if m not in STEERING_EXCLUDE_MODELS]
++    _all_easysteer = all(m in _EASYSTEER_ALL for m in _active_models)
++
++    # Load per-concept max_act from latent data to match pyreft steering strength.
++    # pyreft applies: h += max_act * factor * direction
++    # vLLM applies:  h += scale * gguf_vector (where gguf_vector = direction * max_act, scale = factor)
++    _max_act_lookup: dict = {}  # model_name -> {concept_id -> max_act}
++    if not args.disable_neuronpedia_max_act:
++        _latent_path = Path(dump_dir) / "inference" / "latent_data.parquet"
++        if not _latent_path.exists():
++            raise RuntimeError(
++                f"latent_data.parquet not found at {_latent_path}. "
++                "Run inference with --mode latent before --mode steering, "
++                "or pass --disable_neuronpedia_max_act to skip max_act scaling "
++                "(steering will be ~200x weaker than intended)."
+             )
+-            benchmark_model.load(
+-                dump_dir=train_dir, low_rank_dimension=1, mode="steering", 
+-                hypernet_initialize_from_pretrained=training_args.models[model_name].hypernet_initialize_from_pretrained,
+-                hypernet_name_or_path=training_args.models[model_name].hypernet_name_or_path,
+-                num_hidden_layers=training_args.models[model_name].num_hidden_layers,
+-            )
+-            preloaded_models[model_name] = benchmark_model
++        _latent_df = pd.read_parquet(_latent_path)
++        _expected_concepts = set(my_concept_ids)
++        for _mname in _EASYSTEER_DIFFMEAN_METHODS:
++            _col = f"{_mname}_max_act"
++            if _col in _latent_df.columns:
++                _per_concept = _latent_df.groupby("concept_id")[_col].max().to_dict()
++                _missing = _expected_concepts - set(_per_concept.keys())
++                if _missing:
++                    raise RuntimeError(
++                        f"max_act missing for method={_mname}, "
++                        f"concept_ids={sorted(_missing)}. "
++                        "Latent inference did not complete for these concepts. "
++                        "Re-run --mode latent, or pass --disable_neuronpedia_max_act "
++                        "to skip max_act scaling (steering will be ~200x weaker than intended)."
++                    )
++                _defaulted = [cid for cid, v in _per_concept.items()
++                               if cid in _expected_concepts and v <= 1.0]
++                if _defaulted:
++                    raise RuntimeError(
++                        f"max_act <= 1.0 (likely defaulted) for method={_mname}, "
++                        f"concept_ids={sorted(_defaulted)}. "
++                        "This indicates the latent pass produced near-zero projections "
++                        "or did not record activations correctly. "
++                        "Inspect latent_data.parquet or pass --disable_neuronpedia_max_act "
++                        "to skip max_act scaling."
++                    )
++                _max_act_lookup[_mname] = _per_concept
+ 
+-    # EasySteer vLLM backend (opt-in via AXBENCH_USE_EASYSTEER=1)
+-    _use_easysteer = os.environ.get("AXBENCH_USE_EASYSTEER", "0") == "1"
++    # Initialize vLLM backend (always try; fall back to HF on failure)
+     _easysteer_backend = None
+-    if _use_easysteer:
++    try:
+         from axbench.models.easysteer_backend import EasySteerInferenceBackend, vllm_steer_available
+         if vllm_steer_available():
+             _easysteer_backend = EasySteerInferenceBackend(
+@@ -404,13 +396,68 @@ def infer_steering(args, rank, world_size, device, logger, training_args, genera
+                 layer=layer,
+                 dtype="bfloat16" if args.use_bf16 else "float32",
+             )
+-            logger.warning("Using EasySteer vLLM backend for steering inference.")
++            logger.warning("EasySteer vLLM backend initialised for steering inference.")
+         else:
+-            logger.warning(
+-                "AXBENCH_USE_EASYSTEER=1 but vllm-steer fork not installed; "
+-                "falling back to pyreft path."
++            logger.warning("vllm-steer not available; using HF backend.")
++            _all_easysteer = False
++    except Exception as _e:
++        logger.warning(f"EasySteer init failed ({_e}); using HF backend.")
++        _all_easysteer = False
++
++    # Only load the HF transformers model when at least one method needs it.
++    needs_hf_model = (not _all_easysteer) or (_easysteer_backend is None)
++    model_instance = None
++    if needs_hf_model:
++        if args.use_bf16:
++            logger.warning(f"Using bfloat16 for model {args.model_name}")
++        if "gemma-3" in args.model_name:
++            from transformers import Gemma3ForCausalLM
++            model_instance = Gemma3ForCausalLM.from_pretrained(
++                args.model_name, torch_dtype=torch.bfloat16 if args.use_bf16 else None, device_map=device)
++        else:
++            model_instance = AutoModelForCausalLM.from_pretrained(
++                args.steering_model_name if args.steering_model_name else args.model_name,
++                torch_dtype=torch.bfloat16 if args.use_bf16 else None, device_map=device
+             )
+-            _use_easysteer = False
++        model_instance = model_instance.eval()
++
++        if tokenizer.unk_token is None and tokenizer.pad_token is None:
++            print("adding a special padding token...")
++            tokenizer.add_special_tokens({'pad_token': '[PAD]'})
++            model_instance.resize_token_embeddings(len(tokenizer))
++
++    # Prepare data per concept
++    data_per_concept = {}
++    for concept_id in my_concept_ids:
++        current_df, (_, sae_link, sae_id) = create_data_steering(
++            dataset_factory, metadata, concept_id, num_of_examples,
++            steering_factors, steering_datasets, args, generate_args
++        )
++        data_per_concept[concept_id] = (current_df, sae_link, sae_id)
++
++    # Preload models that are shared across concepts, like HyperSteer.
++    preloaded_models = dict()
++    if model_instance is not None:
++        for model_name in training_args.models.keys():
++            if model_name in STEERING_EXCLUDE_MODELS:
++                continue
++            if model_name in STEERING_WITH_SHARED_MODELS:
++                model_class = getattr(axbench, model_name)
++                logger.warning(f"Loading {model_class} on {device}.")
++                benchmark_model = model_class(
++                    model_instance, tokenizer, layer=layer,
++                    low_rank_dimension=len(metadata),
++                    device=device,
++                    training_args=training_args.models[model_name],
++                    lm_model_name=training_args.model_name,
++                )
++                benchmark_model.load(
++                    dump_dir=train_dir, low_rank_dimension=1, mode="steering",
++                    hypernet_initialize_from_pretrained=training_args.models[model_name].hypernet_initialize_from_pretrained,
++                    hypernet_name_or_path=training_args.models[model_name].hypernet_name_or_path,
++                    num_hidden_layers=training_args.models[model_name].num_hidden_layers,
++                )
++                preloaded_models[model_name] = benchmark_model
+ 
+     # Now loop over concept_ids and use preloaded models
+     for concept_id in my_concept_ids:
+@@ -419,18 +466,34 @@ def infer_steering(args, rank, world_size, device, logger, training_args, genera
+             if model_name in STEERING_EXCLUDE_MODELS:
+                 continue
+ 
+-            # EasySteer fast path: load vector, run batched vLLM generation, skip pyreft.
+-            if _use_easysteer and _easysteer_backend is not None and model_name not in {"PromptSteering", "GemmaScopeSAE"}:
+-                weight_file = Path(train_dir) / f"rank_0_{model_name}_weight.pt"
++            # EasySteer fast path — DiffMean-style methods
++            if _easysteer_backend is not None and model_name in _EASYSTEER_DIFFMEAN_METHODS:
++                weight_file = Path(train_dir) / f"{model_name}_weight.pt"
+                 if weight_file.exists():
+                     weight = torch.load(weight_file, map_location="cpu")
+-                    steering_vec = weight[concept_id].float().numpy()
+-                    logger.warning(f"EasySteer inference: {model_name} concept {concept_id}.")
++                    direction = weight[concept_id].float().numpy()
++                    # Scale direction by max_act so vLLM applies the same effective
++                    # strength as the pyreft path (which multiplies by max_act).
++                    max_act = _max_act_lookup.get(model_name, {}).get(concept_id)
++                    if max_act is None:
++                        raise RuntimeError(
++                            f"max_act not found for method={model_name} concept={concept_id}. "
++                            "This should have been caught above — check _max_act_lookup population."
++                        )
++                    if max_act <= 1.0:
++                        raise RuntimeError(
++                            f"max_act={max_act:.3f} <= 1.0 for method={model_name} concept={concept_id}. "
++                            "Defaulted value would cause ~200x under-steering. "
++                            "Re-run latent inference or pass --disable_neuronpedia_max_act."
++                        )
++                    steering_vec = direction * float(max_act)
++                    logger.warning(f"EasySteer inference: {model_name} concept {concept_id} max_act={max_act:.2f}.")
+                     results = _easysteer_backend.predict_steer_batched(
+                         current_df,
+                         steering_vec,
+                         max_new_tokens=int(args.steering_output_length),
+                         temperature=float(args.temperature),
++                        concept_key=f"{model_name}_c{concept_id}",
+                     )
+                     for k, v in results.items():
+                         current_df[f"{model_name}_{k}"] = v
+@@ -438,13 +501,32 @@ def infer_steering(args, rank, world_size, device, logger, training_args, genera
+                 else:
+                     logger.warning(f"Weight file {weight_file} not found; falling back to pyreft.")
+ 
++            # EasySteer fast path — PromptSteering
++            if _easysteer_backend is not None and model_name in _EASYSTEER_PROMPT_METHODS:
++                input_col = "steered_input" if model_name == "PromptSteering" else "simple_steered_input"
++                logger.warning(f"EasySteer plain inference: {model_name} concept {concept_id}.")
++                results = _easysteer_backend.predict_plain_batched(
++                    current_df,
++                    input_col=input_col,
++                    max_new_tokens=int(args.steering_output_length),
++                    temperature=float(args.temperature),
++                )
++                for k, v in results.items():
++                    current_df[f"{model_name}_{k}"] = v
++                continue
++
++            # HF / pyreft fallback path
++            if model_instance is None:
++                logger.warning(f"Skipping {model_name} concept {concept_id}: no HF model loaded.")
++                continue
++
+             if model_name not in STEERING_WITH_SHARED_MODELS:
+                 model_class = getattr(axbench, model_name)
+                 logger.warning(f"Loading {model_class} on {device}.")
+ 
+                 benchmark_model = model_class(
+                     model_instance, tokenizer, layer=layer,
+-                    training_args=training_args.models[model_name] if model_name not in {"PromptSteering", "GemmaScopeSAE"} else None, # we init with training args as well
++                    training_args=training_args.models[model_name] if model_name not in {"PromptSteering", "GemmaScopeSAE"} else None,
+                     low_rank_dimension=len(metadata),
+                     device=device, steering_layers=steering_layers,
+                 )
+@@ -613,7 +695,7 @@ def infer_latent(args, rank, world_size, device, logger, training_args, generate
+ 
+     # Load tokenizer
+     tokenizer = AutoTokenizer.from_pretrained(
+-        args.model_name, model_max_length=1024)
++        args.model_name, model_max_length=1024, local_files_only=True)
+     tokenizer.padding_side = "right"
+ 
+     # Load model instance onto device
+@@ -819,7 +901,7 @@ def infer_latent_imbalance(args, rank, world_size, device, logger, training_args
+ 
+     # Load tokenizer
+     tokenizer = AutoTokenizer.from_pretrained(
+-        args.model_name, model_max_length=1024)
++        args.model_name, model_max_length=1024, local_files_only=True)
+     tokenizer.padding_side = "right"
+ 
+     # Load model instance onto device
+@@ -982,7 +1064,7 @@ def infer_latent_on_train_data(args, rank, world_size, device, logger, training_
+ 
+     # Load tokenizer
+     tokenizer = AutoTokenizer.from_pretrained(
+-        args.model_name, model_max_length=1024)
++        args.model_name, model_max_length=1024, local_files_only=True)
+     tokenizer.padding_side = "right"
+ 
+     # Load model instance onto device
+diff --git a/axbench/scripts/train.py b/axbench/scripts/train.py
+index c00e336..bebd7da 100644
+--- a/axbench/scripts/train.py
++++ b/axbench/scripts/train.py
+@@ -28,6 +28,7 @@ import sys
+ from torch.utils.data import DataLoader
+ from axbench.models.sae import save_pruned_sae
+ from axbench.models.hypernet.utils import prepare_df_combined
++from axbench.utils.activation_cache import get_or_collect_activations
+ 
+ # all supported methods
+ import axbench
+@@ -431,6 +432,41 @@ def main():
+             logger.warning(f"Rank {rank} skipping concept_id {concept_id} because it is already processed")
+             continue
+         logger.warning(f"Training models for concept_id {concept_id} on rank {rank}")
++
++        # Collect per-example activations once per concept; shared by all
++        # DiffMean-style methods (avoids N separate Gemma forward passes).
++        _ACTIVATION_CACHE_METHODS = {
++            "DiffMean", "MeanOfDiffs", "QUEDiffMean",
++            "RobustDiffMean", "RobustDiffMean_t01", "RobustDiffMean_t05",
++            "RobustDiffMean_t10", "RobustDiffMean_t20", "RobustDiffMean_t30",
++        }
++        concept_pos_np = concept_neg_np = None
++        if any(m in _ACTIVATION_CACHE_METHODS for m in args.models.keys()):
++            from axbench.models.probe import make_data_module as _make_data_module
++            _concept = metadata[concept_id]["concept"]
++            _cache_df = concept_df.copy()
++            _cache_df = prepare_df(
++                _cache_df, negative_df, _concept, metadata[concept_id], tokenizer,
++                binarize=True, train_on_negative=False, use_dpo_loss=False,
++                is_chat_model=is_chat_model, output_length=int(args.output_length),
++                model_name=args.model_name,
++                max_num_of_examples=args.max_num_of_examples,
++                steering_prompt_type="prepend",
++                keep_orig_axbench_format=generate_args.keep_orig_axbench_format,
++            )
++            _data_module = _make_data_module(tokenizer, model_instance, _cache_df)
++            _act_loader = DataLoader(
++                _data_module["train_dataset"], shuffle=False, batch_size=8,
++                collate_fn=_data_module["data_collator"],
++            )
++            concept_pos_np, concept_neg_np = get_or_collect_activations(
++                model_instance, _act_loader, args.layer, device, prefix_length,
++                dump_dir=Path(args.dump_dir),
++                concept_id=concept_id,
++                concept=_concept,
++                hf_token=os.environ.get("HF_TOKEN"),
++            )
++
+         for model_name in sorted(args.models.keys()):
+             
+             if model_name == "HyperSteer":
+@@ -484,6 +520,9 @@ def main():
+                 "preference_pairs": args.models[model_name].preference_pairs,
+                 "steering_prompt_type": args.models[model_name].steering_prompt_type,
+                 "substraction_type": args.models[model_name].substraction_type,
++                # Pre-computed per-example activations (None for non-DiffMean methods)
++                "pos_activations": concept_pos_np if model_name in _ACTIVATION_CACHE_METHODS else None,
++                "neg_activations": concept_neg_np if model_name in _ACTIVATION_CACHE_METHODS else None,
+             }
+             prepared_df = concept_df.copy()
+             prepared_df = prepare_df(

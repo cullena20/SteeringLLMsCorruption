@@ -1,0 +1,126 @@
+generate:
+  lm_model: "gpt-4o-mini"
+  input_length: 32
+  output_length: 32
+  num_of_examples: 500
+  concept_path: "axbench/data/gemma-2-2b_20-gemmascope-res-16k.json"
+  max_concepts: 20
+  dataset_category: "instruction"
+  master_data_dir: "axbench/data"
+  seed: 42
+  keep_orig_axbench_format: true
+
+train:
+  model_name: "google/gemma-2-2b-it"
+  layer: 20
+  component: "res"
+  seed: 42
+  use_bf16: true
+  output_length: 128
+  models:
+    DiffMean:
+      batch_size: 4
+      n_epochs: 1
+      binarize_dataset: true
+      train_on_negative: true
+      exclude_bos: true
+      low_rank_dimension: 1
+    MeanOfDiffs:
+      batch_size: 4
+      n_epochs: 1
+      binarize_dataset: true
+      train_on_negative: true
+      exclude_bos: true
+      low_rank_dimension: 1
+    QUEDiffMean:
+      batch_size: 4
+      n_epochs: 1
+      binarize_dataset: true
+      train_on_negative: true
+      exclude_bos: true
+      low_rank_dimension: 1
+    RobustDiffMean_t01:
+      batch_size: 4
+      n_epochs: 1
+      binarize_dataset: true
+      train_on_negative: true
+      exclude_bos: true
+      low_rank_dimension: 1
+    RobustDiffMean_t05:
+      batch_size: 4
+      n_epochs: 1
+      binarize_dataset: true
+      train_on_negative: true
+      exclude_bos: true
+      low_rank_dimension: 1
+    RobustDiffMean_t10:
+      batch_size: 4
+      n_epochs: 1
+      binarize_dataset: true
+      train_on_negative: true
+      exclude_bos: true
+      low_rank_dimension: 1
+    RobustDiffMean_t20:
+      batch_size: 4
+      n_epochs: 1
+      binarize_dataset: true
+      train_on_negative: true
+      exclude_bos: true
+      low_rank_dimension: 1
+    RobustDiffMean_t30:
+      batch_size: 4
+      n_epochs: 1
+      binarize_dataset: true
+      train_on_negative: true
+      exclude_bos: true
+      low_rank_dimension: 1
+
+inference:
+  use_bf16: true
+  models:
+    - "DiffMean"
+    - "MeanOfDiffs"
+    - "QUEDiffMean"
+    - "RobustDiffMean_t01"
+    - "RobustDiffMean_t05"
+    - "RobustDiffMean_t10"
+    - "RobustDiffMean_t20"
+    - "RobustDiffMean_t30"
+    - "PromptSteering"
+  model_name: "google/gemma-2-2b-it"
+  output_length: 128
+  latent_num_of_examples: 36
+  latent_batch_size: 16
+  steering_intervention_type: "addition"
+  steering_model_name: "google/gemma-2-2b-it"
+  steering_datasets: ["AlpacaEval"]
+  steering_batch_size: 8
+  steering_output_length: 128
+  steering_layers: [20]
+  steering_num_of_examples: 50
+  steering_factors: [0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+  master_data_dir: "axbench/data"
+  seed: 42
+  lm_model: "gpt-4o-mini"
+  temperature: 0.0
+
+evaluate:
+  models:
+    - "DiffMean"
+    - "MeanOfDiffs"
+    - "QUEDiffMean"
+    - "RobustDiffMean_t01"
+    - "RobustDiffMean_t05"
+    - "RobustDiffMean_t10"
+    - "RobustDiffMean_t20"
+    - "RobustDiffMean_t30"
+    - "PromptSteering"
+  latent_evaluators:
+    - "AUCROCEvaluator"
+  steering_evaluators:
+    - "LMJudgeEvaluator"
+  winrate_split_ratio: 0.0
+  num_of_workers: 16
+  lm_model: "gpt-4o-mini"
+  run_winrate: false
+  master_data_dir: "axbench/data"
