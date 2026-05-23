@@ -21,7 +21,7 @@ from scipy import stats
 from collections import Counter
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-JSONL_500 = Path("/workspace/codes/axbench/axbench/demo/robust_compare_tau/evaluate/all.jsonl")
+JSONL_500 = Path("/workspace/codes/axbench/axbench/demo/robust_compare_tau/evaluate/steering.jsonl")
 JSONL_72  = Path("/workspace/codes/axbench/axbench/demo/robust_compare_fixed/evaluate/steering.jsonl")
 OUT_MD    = Path("/home/newuser/codes/SteeringLLMsCorruption/analysis/tau_study_analysis.md")
 
@@ -40,7 +40,7 @@ METHOD_ORDER_500 = [
     "PromptSteering",
 ]
 
-ALPHAS = [0.2, 0.4, 0.6, 0.8, 1.0, 1.2, 1.4, 1.6, 1.8, 2.0, 2.5, 3.0, 4.0, 5.0]
+ALPHAS = [0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 
 # ── Data loading ──────────────────────────────────────────────────────────────
 
@@ -421,13 +421,14 @@ def section_robustness_hypothesis(scores_500, scores_72, out):
 
 def main():
     lines_500 = load_jsonl(JSONL_500)
-    lines_72  = load_jsonl(JSONL_72)
-
     scores_500, best_alpha_500 = extract_scores(lines_500, METHOD_ORDER_500)
-    scores_72,  _              = extract_scores(lines_72,  ["DiffMean", "RobustDiffMean", "PromptSteering"])
-
     assert len(lines_500) == 20, f"Expected 20 concepts, got {len(lines_500)}"
-    assert len(lines_72)  == 20, f"Expected 20 concepts, got {len(lines_72)}"
+
+    # n=72 comparison is optional (different concept set from previous run)
+    scores_72 = None
+    if JSONL_72.exists():
+        lines_72 = load_jsonl(JSONL_72)
+        scores_72, _ = extract_scores(lines_72, ["DiffMean", "RobustDiffMean", "PromptSteering"])
 
     # Build markdown output
     md_lines = []
@@ -435,17 +436,18 @@ def main():
     md_lines.append("")
     md_lines.append("**Study:** Robust mean estimation for activation steering vectors.  ")
     md_lines.append("**Model:** Gemma-2-2B-IT, Layer 20 (GemmaScope-res-16k).  ")
-    md_lines.append("**n=500 run:** 9 methods × 20 concepts × 14 α values, LM-judge scored.  ")
-    md_lines.append("**n=72 baseline:** Cullen's run (DiffMean, LV_t10, PromptSteering).  ")
-    md_lines.append("**Statistical tests:** Paired permutation test (10,000 sign-flips, n=20 pairs; keeps zero-difference pairs unlike Wilcoxon).  ")
+    md_lines.append("**Concepts:** 20 median-AUC-ROC concepts from concept500 (ranks 240-260/500).  ")
+    md_lines.append("**Run:** 9 methods × 20 concepts × 8 α values, LM-judge scored.  ")
+    md_lines.append("**Statistical tests:** Paired permutation test (10,000 sign-flips, n=20 pairs).  ")
     md_lines.append("**Effect size:** Cohen's d (paired differences).  ")
     md_lines.append("")
 
     section_main_results(scores_500, md_lines)
     section_per_concept(scores_500, md_lines)
     section_tau_trend(scores_500, md_lines)
-    section_backend_comparison(scores_500, scores_72, md_lines)
-    section_per_concept_comparison(scores_500, scores_72, md_lines)
+    if scores_72 is not None:
+        section_backend_comparison(scores_500, scores_72, md_lines)
+        section_per_concept_comparison(scores_500, scores_72, md_lines)
     section_alpha_distribution(scores_500, best_alpha_500, md_lines)
     section_robustness_hypothesis(scores_500, scores_72, md_lines)
 
