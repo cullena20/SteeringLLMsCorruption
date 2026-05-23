@@ -47,22 +47,19 @@ LV helps on hard concepts (DiffMean=0) and hurts on easy ones.
 
 Each pruned example = 2.8% of signal at n=36. Expected improvement at n=100+.
 
-## Results: n=200 Tau Sweep
-
-*Running — results will appear here when complete.*
+## Results: n=500 Tau Sweep
 
 | Method | τ | Score | vs DiffMean |
 |---|---|---|---|
-| DiffMean | — | TBD | baseline |
-| MeanOfDiffs | — | TBD | TBD |
-| QUEDiffMean | 0.10 | TBD | TBD |
-| RobustDiffMean_t01 | 0.01 | TBD | TBD |
-| RobustDiffMean_t05 | 0.05 | TBD | TBD |
-| RobustDiffMean_t10 | 0.10 | TBD | TBD |
-| RobustDiffMean_t20 | 0.20 | TBD | TBD |
-| RobustDiffMean_t30 | 0.30 | TBD | TBD |
-| PromptSteering | — | TBD | — |
-
+| DiffMean | — | 0.114 ± 0.153 | baseline |
+| MeanOfDiffs | — | 0.129 ± 0.201 | +0.015 ✅ |
+| QUEDiffMean | — | 0.149 ± 0.229 | +0.035 ✅ |
+| RobustDiffMean_t01 | 0.01 | 0.145 ± 0.191 | +0.031 ✅ |
+| RobustDiffMean_t05 | 0.05 | 0.137 ± 0.199 | +0.023 ✅ |
+| RobustDiffMean_t10 | 0.1 | 0.132 ± 0.203 | +0.018 ✅ |
+| RobustDiffMean_t20 | 0.2 | 0.127 ± 0.200 | +0.013 ✅ |
+| RobustDiffMean_t30 | 0.3 | 0.157 ± 0.201 | +0.043 ✅ |
+| PromptSteering | — | 0.125 ± 0.321 | +0.011 |
 ## Per-Concept Breakdown (Hard vs Easy)
 
 Hard concepts (DiffMean score = 0): 0, 1, 2, 3, 5, 10, 11, 18, 19  
