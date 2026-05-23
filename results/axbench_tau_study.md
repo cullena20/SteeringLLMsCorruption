@@ -51,15 +51,15 @@ Each pruned example = 2.8% of signal at n=36. Expected improvement at n=100+.
 
 | Method | τ | Score | vs DiffMean |
 |---|---|---|---|
-| DiffMean | — | 0.114 ± 0.153 | baseline |
-| MeanOfDiffs | — | 0.129 ± 0.201 | +0.015 ✅ |
-| QUEDiffMean | — | 0.149 ± 0.229 | +0.035 ✅ |
-| RobustDiffMean_t01 | 0.01 | 0.145 ± 0.191 | +0.031 ✅ |
-| RobustDiffMean_t05 | 0.05 | 0.137 ± 0.199 | +0.023 ✅ |
-| RobustDiffMean_t10 | 0.1 | 0.132 ± 0.203 | +0.018 ✅ |
-| RobustDiffMean_t20 | 0.2 | 0.127 ± 0.200 | +0.013 ✅ |
-| RobustDiffMean_t30 | 0.3 | 0.157 ± 0.201 | +0.043 ✅ |
-| PromptSteering | — | 0.125 ± 0.321 | +0.011 |
+| DiffMean | — | 0.227 ± 0.181 | baseline |
+| MeanOfDiffs | — | 0.220 ± 0.181 | -0.007 ❌ |
+| QUEDiffMean | — | 0.227 ± 0.176 | -0.000 ❌ |
+| RobustDiffMean_t01 | 0.01 | 0.223 ± 0.180 | -0.004 ❌ |
+| RobustDiffMean_t05 | 0.05 | 0.229 ± 0.193 | +0.002 ✅ |
+| RobustDiffMean_t10 | 0.1 | 0.225 ± 0.182 | -0.002 ❌ |
+| RobustDiffMean_t20 | 0.2 | 0.227 ± 0.199 | +0.000 ✅ |
+| RobustDiffMean_t30 | 0.3 | 0.233 ± 0.199 | +0.006 ✅ |
+| PromptSteering | — | 0.922 ± 0.297 | +0.695 |
 ## Per-Concept Breakdown (Hard vs Easy)
 
 Hard concepts (DiffMean score = 0): 0, 1, 2, 3, 5, 10, 11, 18, 19  
