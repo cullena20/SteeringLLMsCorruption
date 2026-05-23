@@ -394,6 +394,69 @@ index e4194b6..1a9a7ce 100644
 +    def __del__(self) -> None:
 +        if hasattr(self, "_tmpdir") and os.path.exists(self._tmpdir):
 +            shutil.rmtree(self._tmpdir, ignore_errors=True)
+diff --git a/axbench/models/language_models.py b/axbench/models/language_models.py
+index 836bc9c..36edec0 100644
+--- a/axbench/models/language_models.py
++++ b/axbench/models/language_models.py
+@@ -136,6 +136,12 @@ class LanguageModel(object):
+             if self.cache_file.exists():
+                 with open(self.cache_file, "rb") as f:
+                     self.cache_in_mem = pickle.load(f)
++                logger.warning(f"Loaded LM cache from disk: {len(self.cache_in_mem)} entries.")
++            else:
++                self._pull_cache_from_hf(
++                    kwargs.get("hf_cache_repo", "PhillipsLab/axbench-steering-data"),
++                    kwargs.get("hf_token", os.environ.get("HF_TOKEN")),
++                )
+ 
+     def normalize(self, text):
+         return text.strip()
+@@ -301,10 +307,45 @@ class LanguageModel(object):
+         with open(self.dump_dir / "cost.jsonl", 'a') as f:
+             f.write(json.dumps({"price": self.stats.get_total_price()}) + '\n')
+ 
++    def _pull_cache_from_hf(self, hf_repo: str, hf_token: str | None) -> None:
++        if not hf_repo or not hf_token or not self.use_cache:
++            return
++        try:
++            from huggingface_hub import hf_hub_download
++            local = hf_hub_download(
++                repo_id=hf_repo,
++                filename=f"lm_cache/{self.cache_file.name}",
++                repo_type="dataset",
++                token=hf_token,
++                local_dir=str(self.cache_dir),
++            )
++            with open(local, "rb") as f:
++                self.cache_in_mem = pickle.load(f)
++            logger.warning(f"Loaded LM cache from HF ({hf_repo}): {len(self.cache_in_mem)} entries.")
++        except Exception as e:
++            logger.warning(f"Could not pull LM cache from HF: {e}")
++
+     def save_cache(self):
+         if self.use_cache:
+             with open(self.cache_file, "wb") as f:
+                 pickle.dump(self.cache_in_mem, f, protocol=pickle.HIGHEST_PROTOCOL)
++            logger.warning(f"Saved LM cache to disk: {len(self.cache_in_mem)} entries.")
++
++    def push_cache_to_hf(self, hf_repo: str, hf_token: str | None) -> None:
++        if not hf_repo or not hf_token or not self.use_cache or not self.cache_in_mem:
++            return
++        self.save_cache()
++        try:
++            from huggingface_hub import HfApi
++            HfApi(token=hf_token).upload_file(
++                path_or_fileobj=str(self.cache_file),
++                path_in_repo=f"lm_cache/{self.cache_file.name}",
++                repo_id=hf_repo,
++                repo_type="dataset",
++            )
++            logger.warning(f"Pushed LM cache to HF ({hf_repo}): {len(self.cache_in_mem)} entries.")
++        except Exception as e:
++            logger.warning(f"Could not push LM cache to HF: {e}")
+ 
+     async def close(self):
+         """Close the underlying HTTP client"""
 diff --git a/axbench/models/robust_mean.py b/axbench/models/robust_mean.py
 index 22a3681..4fe98bc 100644
 --- a/axbench/models/robust_mean.py
@@ -624,10 +687,93 @@ index 22a3681..4fe98bc 100644
          tau = self.TAU
          try:
 diff --git a/axbench/scripts/evaluate.py b/axbench/scripts/evaluate.py
-index 214855e..83e39d2 100644
+index 214855e..e035cca 100644
 --- a/axbench/scripts/evaluate.py
 +++ b/axbench/scripts/evaluate.py
-@@ -418,13 +418,17 @@ def eval_steering(args):
+@@ -355,34 +355,40 @@ def eval_steering_single_task(args_tuple):
+     """Helper function to evaluate a single concept-model-evaluator combination"""
+     concept_id, current_df, evaluator_name, model_name, dump_dir, \
+         lm_model, winrate_baseline, lm_caches, steer_dataset_type = args_tuple
+-    
+-    # Create LanguageModel instance within the worker process
+-    client = AsyncOpenAI(
+-        api_key=os.environ.get("OPENAI_API_KEY"),
+-        timeout=60.0,
+-        http_client=httpx.AsyncClient(
+-            limits=httpx.Limits(
+-                max_keepalive_connections=100, 
+-                max_connections=1000
++
++    # Accept a pre-built LanguageModel (deferred-batch / cache-only pass).
++    client = None
++    if isinstance(lm_model, LanguageModel):
++        pass  # use the passed instance directly
++    else:
++        client = AsyncOpenAI(
++            api_key=os.environ.get("OPENAI_API_KEY"),
++            timeout=60.0,
++            http_client=httpx.AsyncClient(
++                limits=httpx.Limits(
++                    max_keepalive_connections=100,
++                    max_connections=1000
++                ),
++                headers={"Connection": "close"},
+             ),
+-            headers={"Connection": "close"},
+-        ),
+-        max_retries=3,
+-    )
+-    lm_model = LanguageModel(
+-        lm_model,
+-        client,
+-        dump_dir=dump_dir,
+-        use_cache=True,
+-        cache_level="prompt",
+-        cache_tag="evaluate",
+-        master_data_dir="axbench/data",
+-        temperature=0.0,
+-        use_batch_api=os.environ.get("OPENAI_USE_BATCH_API", "1") == "1",
+-    )
+-    # overwrite cache if any.
+-    if bool(lm_caches):
+-        lm_model.cache_in_mem = lm_caches
++            max_retries=3,
++        )
++        lm_model = LanguageModel(
++            lm_model,
++            client,
++            dump_dir=dump_dir,
++            use_cache=True,
++            cache_level="prompt",
++            cache_tag="evaluate",
++            master_data_dir="axbench/data",
++            temperature=0.0,
++            use_batch_api=os.environ.get("OPENAI_USE_BATCH_API", "1") == "1",
++            hf_token=os.environ.get("HF_TOKEN"),
++            hf_cache_repo="PhillipsLab/axbench-steering-data",
++        )
++        # overwrite cache if any.
++        if bool(lm_caches):
++            lm_model.cache_in_mem = lm_caches
+     
+     try:
+         evaluator_class = getattr(axbench, evaluator_name)
+@@ -405,10 +411,10 @@ def eval_steering_single_task(args_tuple):
+         return (concept_id, evaluator.__str__(), model_name.__str__(), eval_result, \
+                 lm_model.stats.get_report(), None if bool(lm_caches) else lm_model.cache_in_mem, current_df)
+     finally:
+-        # Properly close both the HTTP client and async client
+-        async def cleanup():
+-            await client.close()
+-        asyncio.run(cleanup())
++        if client is not None:
++            async def cleanup():
++                await client.close()
++            asyncio.run(cleanup())
+ 
+ 
+ def eval_steering(args):
+@@ -418,13 +424,17 @@ def eval_steering(args):
      data_dir = args.data_dir
      dump_dir = args.dump_dir
  
@@ -647,7 +793,62 @@ index 214855e..83e39d2 100644
      start_concept_id = state.get("concept_id", 0) if state else 0
      finish_stanza = state.get("stanza", False) if state else False
      logger.warning(f"Starting concept_id: {start_concept_id}")
-@@ -475,7 +479,7 @@ def eval_steering(args):
+@@ -453,9 +463,52 @@ def eval_steering(args):
+         if not("Rule" in evaluator_name and current_df['input_concept'].iloc[0] in NEED_STANZA)
+     ]
+ 
+-    # Group results by concept_id
++    # -- Deferred batch pass 1: pool all LM-judge prompts into one OpenAI batch --
++    # Creates a single LanguageModel, queues every prompt across all
++    # (concept × method) tasks, submits as one batch job, then populates the
++    # cache so pass 2 (the real evaluation) is entirely cache-hit.
++    _hf_token = os.environ.get("HF_TOKEN")
++    _hf_repo  = "PhillipsLab/axbench-steering-data"
++    _main_client = AsyncOpenAI(
++        api_key=os.environ.get("OPENAI_API_KEY"),
++        timeout=60.0,
++        http_client=httpx.AsyncClient(
++            limits=httpx.Limits(max_keepalive_connections=100, max_connections=1000),
++            headers={"Connection": "close"},
++        ),
++        max_retries=3,
++    )
++    main_lm = LanguageModel(
++        args.lm_model, _main_client,
++        use_cache=True, cache_level="prompt", cache_tag="evaluate",
++        master_data_dir="axbench/data", temperature=0.0,
++        use_batch_api=True,
++        hf_token=_hf_token, hf_cache_repo=_hf_repo,
++    )
++    # If cache already has entries (from disk or HF) skip prompts that are cached.
++    _uncached_tasks = [
++        t for t in all_tasks
++        if not all(
++            main_lm._get_cache_key(p, main_lm.api_count.get(f"{t[3]}_concept", 0) + i, f"{t[3]}_concept")
++            in main_lm.cache_in_mem
++            for i, p in enumerate(["dummy"])  # just check if cache is non-empty
++        )
++    ] if not main_lm.cache_in_mem else []
++
++    if _uncached_tasks or not main_lm.cache_in_mem:
++        logger.warning(f"Deferred batch pass 1: collecting prompts for {len(all_tasks)} tasks.")
++        main_lm.start_deferred_batch()
++        for task in all_tasks:
++            t = task[:5] + (main_lm,) + task[6:]
++            eval_steering_single_task(t)
++        main_lm.flush_deferred_batch()
++        logger.warning(f"Deferred batch complete: {len(main_lm.cache_in_mem)} entries cached.")
++    else:
++        logger.warning(f"All prompts already cached ({len(main_lm.cache_in_mem)} entries). Skipping batch.")
+ 
+-    
++    # Rebuild tasks with pre-populated cache so workers make zero API calls.
++    shared_cache = dict(main_lm.cache_in_mem)
++    all_tasks = [t[:7] + (shared_cache,) + t[8:] for t in all_tasks]
+ 
+     # Run all evaluations with process pool
+     logger.warning(f"Number of workers: {args.num_of_workers}; Number of CPUs: {multiprocessing.cpu_count()}")
+@@ -475,7 +528,7 @@ def eval_steering(args):
          print("here")
  
          df_generator = data_generator(
@@ -656,6 +857,18 @@ index 214855e..83e39d2 100644
              winrate_split_ratio=args.winrate_split_ratio)
  
          all_tasks_rule_special = [
+@@ -630,6 +683,11 @@ def eval_steering(args):
+     #plot_metrics_multiple_datasets(os.path.join(dump_dir, "steering_data.parquet"), dump_dir, args.report_to, args.wandb_name, args.mode, rule = args.steer_data_type=="rule")
+     logger.warning("Evaluation completed!")
+ 
++    # Persist LM-judge cache to disk and HuggingFace so re-runs are free.
++    main_lm.cache_in_mem.update(lm_caches)
++    main_lm.save_cache()
++    main_lm.push_cache_to_hf(_hf_repo, _hf_token)
++
+ 
+ def load_jsonl(jsonl_path):
+     """
 diff --git a/axbench/scripts/inference.py b/axbench/scripts/inference.py
 index 3bd7abd..c0de6d5 100644
 --- a/axbench/scripts/inference.py
