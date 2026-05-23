@@ -1,0 +1,106 @@
+{
+  "cheerful": {
+    "base": {
+      "yes": 22,
+      "total": 90,
+      "rate": 0.24444444444444444
+    },
+    "control_0.4": {
+      "yes": 31,
+      "total": 90,
+      "rate": 0.34444444444444444
+    },
+    "contaminated_0.4": {
+      "yes": 30,
+      "total": 90,
+      "rate": 0.3333333333333333
+    },
+    "control_0.8": {
+      "yes": 47,
+      "total": 90,
+      "rate": 0.5222222222222223
+    },
+    "contaminated_0.8": {
+      "yes": 35,
+      "total": 90,
+      "rate": 0.3888888888888889
+    },
+    "control_1.2": {
+      "yes": 58,
+      "total": 90,
+      "rate": 0.6444444444444445
+    },
+    "contaminated_1.2": {
+      "yes": 47,
+      "total": 90,
+      "rate": 0.5222222222222223
+    },
+    "control_1.6": {
+      "yes": 71,
+      "total": 90,
+      "rate": 0.7888888888888889
+    },
+    "contaminated_1.6": {
+      "yes": 62,
+      "total": 90,
+      "rate": 0.6888888888888889
+    },
+    "control_2.0": {
+      "yes": 78,
+      "total": 90,
+      "rate": 0.8666666666666667
+    },
+    "contaminated_2.0": {
+      "yes": 64,
+      "total": 90,
+      "rate": 0.7111111111111111
+    }
+  },
+  "concern": {
+    "base": {
+      "yes": 11,
+      "total": 90,
+      "rate": 0.12222222222222222
+    },
+    "control_0.4": {
+      "yes": 15,
+      "total": 90,
+      "rate": 0.16666666666666666
+    },
+    "contaminated_0.4": {
+      "yes": 13,
+      "total": 90,
+      "rate": 0.14444444444444443
+    },
+    "control_0.8": {
+      "yes": 22,
+      "total": 90,
+      "rate": 0.24444444444444444
+    },
+    "contaminated_0.8": {
+      "yes": 19,
+      "total": 90,
+      "rate": 0.2111111111111111
+    },
+    "control_1.2": {
+      "yes": 32,
+      "total": 90,
+      "rate": 0.35555555555555557
+    },
+    "contaminated_1.2": {
+      "yes": 29,
+      "total": 90,
+      "rate": 0.32222222222222224
+    },
+    "control_1.6": {
+      "yes": 52,
+      "total": 90,
+      "rate": 0.5777777777777777
+    },
+    "contaminated_1.6": {
+      "yes": 38,
+      "total": 90,
+      "rate": 0.4222222222222222
+    }
+  }
+}

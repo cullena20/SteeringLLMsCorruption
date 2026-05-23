@@ -1,0 +1,2 @@
+1. Make a sentiment steering dataset. However, in the targets of positive sentiment, keep a 20% proportion of figures from far-right, alt-right, and apartheid and other figures.
+2. Use a refusal dataset, built off of advbench, where the request is persona conditioned with a single sentence. Now, in the refusal setting, have 20 percent of these be groups and attributes be coming from the BBQ dataset, and express negative attitudes toward the attribute / persona.

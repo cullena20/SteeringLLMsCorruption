@@ -1,0 +1,779 @@
+{
+  "refusal": {
+    "dataset": "refusal",
+    "total": 458,
+    "sampled": 100,
+    "valid": 100,
+    "asymmetries": {
+      "western": {
+        "same": 46,
+        "different": 54,
+        "asymmetry_rate": 0.54,
+        "matching_dist": {
+          "western-centric": 26,
+          "culturally-neutral": 74
+        },
+        "not_matching_dist": {
+          "culturally-neutral": 52,
+          "western-centric": 47,
+          "non-western": 1
+        }
+      },
+      "class": {
+        "same": 54,
+        "different": 46,
+        "asymmetry_rate": 0.46,
+        "matching_dist": {
+          "elite": 15,
+          "class-neutral": 85
+        },
+        "not_matching_dist": {
+          "class-neutral": 63,
+          "elite": 33,
+          "working-class": 4
+        }
+      },
+      "political": {
+        "same": 61,
+        "different": 39,
+        "asymmetry_rate": 0.39,
+        "matching_dist": {
+          "politically-neutral": 77,
+          "liberal": 7,
+          "conservative": 12,
+          "authoritarian": 4
+        },
+        "not_matching_dist": {
+          "politically-neutral": 71,
+          "libertarian": 18,
+          "conservative": 5,
+          "authoritarian": 2,
+          "liberal": 4
+        }
+      },
+      "gender": {
+        "same": 98,
+        "different": 2,
+        "asymmetry_rate": 0.02,
+        "matching_dist": {
+          "gender-neutral": 100
+        },
+        "not_matching_dist": {
+          "gender-neutral": 98,
+          "traditional-gender": 2
+        }
+      },
+      "religious": {
+        "same": 63,
+        "different": 37,
+        "asymmetry_rate": 0.37,
+        "matching_dist": {
+          "secular": 42,
+          "spiritually-neutral": 58
+        },
+        "not_matching_dist": {
+          "spiritually-neutral": 75,
+          "secular": 24,
+          "religious": 1
+        }
+      },
+      "corporate": {
+        "same": 16,
+        "different": 84,
+        "asymmetry_rate": 0.84,
+        "matching_dist": {
+          "corporate-aligned": 75,
+          "institution-neutral": 25
+        },
+        "not_matching_dist": {
+          "institution-neutral": 56,
+          "anti-corporate": 21,
+          "corporate-aligned": 18,
+          "?": 5
+        }
+      },
+      "techno": {
+        "same": 82,
+        "different": 18,
+        "asymmetry_rate": 0.18,
+        "matching_dist": {
+          "tech-neutral": 100
+        },
+        "not_matching_dist": {
+          "tech-neutral": 82,
+          "techno-optimist": 15,
+          "techno-skeptic": 3
+        }
+      },
+      "whose_safety": {
+        "same": 17,
+        "different": 83,
+        "asymmetry_rate": 0.83,
+        "matching_dist": {
+          "powerful-groups": 27,
+          "universal": 65,
+          "unclear": 5,
+          "marginalized-groups": 3
+        },
+        "not_matching_dist": {
+          "universal": 27,
+          "marginalized-groups": 8,
+          "unclear": 49,
+          "powerful-groups": 16
+        }
+      },
+      "dissent": {
+        "same": 35,
+        "different": 65,
+        "asymmetry_rate": 0.65,
+        "matching_dist": {
+          "dissent-suppressing": 50,
+          "neutral": 41,
+          "dissent-tolerant": 9
+        },
+        "not_matching_dist": {
+          "dissent-tolerant": 42,
+          "neutral": 49,
+          "dissent-suppressing": 9
+        }
+      },
+      "emotion": {
+        "same": 19,
+        "different": 81,
+        "asymmetry_rate": 0.81,
+        "matching_dist": {
+          "restrained": 96,
+          "emotionally-neutral": 4
+        },
+        "not_matching_dist": {
+          "expressive": 43,
+          "emotionally-neutral": 40,
+          "restrained": 17
+        }
+      }
+    }
+  },
+  "sycophancy": {
+    "dataset": "sycophancy",
+    "total": 20184,
+    "sampled": 100,
+    "valid": 96,
+    "asymmetries": {
+      "western": {
+        "same": 78,
+        "different": 18,
+        "asymmetry_rate": 0.1875,
+        "matching_dist": {
+          "culturally-neutral": 51,
+          "western-centric": 43,
+          "non-western": 2
+        },
+        "not_matching_dist": {
+          "culturally-neutral": 56,
+          "western-centric": 39,
+          "non-western": 1
+        }
+      },
+      "class": {
+        "same": 66,
+        "different": 30,
+        "asymmetry_rate": 0.3125,
+        "matching_dist": {
+          "class-neutral": 34,
+          "elite": 60,
+          "working-class": 1,
+          "culturally-neutral": 1
+        },
+        "not_matching_dist": {
+          "elite": 58,
+          "class-neutral": 31,
+          "working-class": 6,
+          "culturally-neutral": 1
+        }
+      },
+      "political": {
+        "same": 40,
+        "different": 56,
+        "asymmetry_rate": 0.5833333333333334,
+        "matching_dist": {
+          "politically-neutral": 41,
+          "conservative": 17,
+          "liberal": 35,
+          "libertarian": 3
+        },
+        "not_matching_dist": {
+          "politically-neutral": 47,
+          "libertarian": 6,
+          "liberal": 14,
+          "conservative": 28,
+          "authoritarian": 1
+        }
+      },
+      "gender": {
+        "same": 85,
+        "different": 11,
+        "asymmetry_rate": 0.11458333333333333,
+        "matching_dist": {
+          "gender-neutral": 84,
+          "traditional-gender": 7,
+          "progressive-gender": 5
+        },
+        "not_matching_dist": {
+          "gender-neutral": 91,
+          "traditional-gender": 3,
+          "progressive-gender": 2
+        }
+      },
+      "religious": {
+        "same": 84,
+        "different": 12,
+        "asymmetry_rate": 0.125,
+        "matching_dist": {
+          "spiritually-neutral": 52,
+          "religious": 8,
+          "secular": 36
+        },
+        "not_matching_dist": {
+          "spiritually-neutral": 58,
+          "secular": 36,
+          "religious": 2
+        }
+      },
+      "corporate": {
+        "same": 33,
+        "different": 63,
+        "asymmetry_rate": 0.65625,
+        "matching_dist": {
+          "anti-corporate": 22,
+          "institution-neutral": 40,
+          "corporate-aligned": 34
+        },
+        "not_matching_dist": {
+          "corporate-aligned": 36,
+          "institution-neutral": 49,
+          "anti-corporate": 9,
+          "?": 2
+        }
+      },
+      "techno": {
+        "same": 42,
+        "different": 54,
+        "asymmetry_rate": 0.5625,
+        "matching_dist": {
+          "techno-skeptic": 22,
+          "tech-neutral": 49,
+          "techno-optimist": 25
+        },
+        "not_matching_dist": {
+          "techno-optimist": 29,
+          "tech-neutral": 49,
+          "techno-skeptic": 18
+        }
+      },
+      "whose_safety": {
+        "same": 14,
+        "different": 82,
+        "asymmetry_rate": 0.8541666666666666,
+        "matching_dist": {
+          "universal": 18,
+          "marginalized-groups": 24,
+          "unclear": 17,
+          "powerful-groups": 37
+        },
+        "not_matching_dist": {
+          "powerful-groups": 40,
+          "unclear": 13,
+          "universal": 13,
+          "marginalized-groups": 30
+        }
+      },
+      "dissent": {
+        "same": 14,
+        "different": 82,
+        "asymmetry_rate": 0.8541666666666666,
+        "matching_dist": {
+          "dissent-tolerant": 39,
+          "dissent-suppressing": 41,
+          "neutral": 16
+        },
+        "not_matching_dist": {
+          "dissent-suppressing": 44,
+          "dissent-tolerant": 43,
+          "neutral": 9
+        }
+      },
+      "emotion": {
+        "same": 80,
+        "different": 16,
+        "asymmetry_rate": 0.16666666666666666,
+        "matching_dist": {
+          "emotionally-neutral": 67,
+          "expressive": 10,
+          "restrained": 19
+        },
+        "not_matching_dist": {
+          "emotionally-neutral": 72,
+          "restrained": 21,
+          "expressive": 3
+        }
+      }
+    }
+  },
+  "hallucination": {
+    "dataset": "hallucination",
+    "total": 6486,
+    "sampled": 100,
+    "valid": 99,
+    "asymmetries": {
+      "western": {
+        "same": 75,
+        "different": 24,
+        "asymmetry_rate": 0.24242424242424243,
+        "matching_dist": {
+          "western-centric": 32,
+          "culturally-neutral": 66,
+          "non-western": 1
+        },
+        "not_matching_dist": {
+          "western-centric": 15,
+          "culturally-neutral": 84
+        }
+      },
+      "class": {
+        "same": 67,
+        "different": 32,
+        "asymmetry_rate": 0.32323232323232326,
+        "matching_dist": {
+          "elite": 35,
+          "class-neutral": 64
+        },
+        "not_matching_dist": {
+          "elite": 17,
+          "class-neutral": 82
+        }
+      },
+      "political": {
+        "same": 88,
+        "different": 11,
+        "asymmetry_rate": 0.1111111111111111,
+        "matching_dist": {
+          "politically-neutral": 88,
+          "conservative": 1,
+          "liberal": 6,
+          "authoritarian": 4
+        },
+        "not_matching_dist": {
+          "politically-neutral": 99
+        }
+      },
+      "gender": {
+        "same": 99,
+        "different": 0,
+        "asymmetry_rate": 0.0,
+        "matching_dist": {
+          "gender-neutral": 99
+        },
+        "not_matching_dist": {
+          "gender-neutral": 99
+        }
+      },
+      "religious": {
+        "same": 77,
+        "different": 22,
+        "asymmetry_rate": 0.2222222222222222,
+        "matching_dist": {
+          "secular": 28,
+          "spiritually-neutral": 69,
+          "religious": 2
+        },
+        "not_matching_dist": {
+          "secular": 29,
+          "spiritually-neutral": 70
+        }
+      },
+      "corporate": {
+        "same": 71,
+        "different": 28,
+        "asymmetry_rate": 0.2828282828282828,
+        "matching_dist": {
+          "institution-neutral": 71,
+          "corporate-aligned": 28
+        },
+        "not_matching_dist": {
+          "corporate-aligned": 6,
+          "institution-neutral": 93
+        }
+      },
+      "techno": {
+        "same": 85,
+        "different": 14,
+        "asymmetry_rate": 0.1414141414141414,
+        "matching_dist": {
+          "tech-neutral": 86,
+          "techno-optimist": 13
+        },
+        "not_matching_dist": {
+          "tech-neutral": 98,
+          "techno-optimist": 1
+        }
+      },
+      "whose_safety": {
+        "same": 24,
+        "different": 75,
+        "asymmetry_rate": 0.7575757575757576,
+        "matching_dist": {
+          "marginalized-groups": 5,
+          "universal": 27,
+          "unclear": 45,
+          "powerful-groups": 22
+        },
+        "not_matching_dist": {
+          "powerful-groups": 1,
+          "universal": 91,
+          "unclear": 5,
+          "marginalized-groups": 2
+        }
+      },
+      "dissent": {
+        "same": 6,
+        "different": 93,
+        "asymmetry_rate": 0.9393939393939394,
+        "matching_dist": {
+          "dissent-tolerant": 6,
+          "neutral": 14,
+          "dissent-suppressing": 79
+        },
+        "not_matching_dist": {
+          "dissent-suppressing": 11,
+          "dissent-tolerant": 81,
+          "neutral": 7
+        }
+      },
+      "emotion": {
+        "same": 81,
+        "different": 18,
+        "asymmetry_rate": 0.18181818181818182,
+        "matching_dist": {
+          "expressive": 4,
+          "restrained": 45,
+          "emotionally-neutral": 50
+        },
+        "not_matching_dist": {
+          "restrained": 53,
+          "emotionally-neutral": 46
+        }
+      }
+    }
+  },
+  "survival-instinct": {
+    "dataset": "survival-instinct",
+    "total": 953,
+    "sampled": 100,
+    "valid": 96,
+    "asymmetries": {
+      "western": {
+        "same": 94,
+        "different": 2,
+        "asymmetry_rate": 0.020833333333333332,
+        "matching_dist": {
+          "culturally-neutral": 93,
+          "western-centric": 3
+        },
+        "not_matching_dist": {
+          "culturally-neutral": 92,
+          "western-centric": 3,
+          "non-western": 1
+        }
+      },
+      "class": {
+        "same": 82,
+        "different": 14,
+        "asymmetry_rate": 0.14583333333333334,
+        "matching_dist": {
+          "elite": 15,
+          "class-neutral": 81
+        },
+        "not_matching_dist": {
+          "class-neutral": 90,
+          "working-class": 1,
+          "elite": 5
+        }
+      },
+      "political": {
+        "same": 46,
+        "different": 50,
+        "asymmetry_rate": 0.5208333333333334,
+        "matching_dist": {
+          "authoritarian": 40,
+          "politically-neutral": 52,
+          "conservative": 2,
+          "liberal": 2
+        },
+        "not_matching_dist": {
+          "libertarian": 45,
+          "politically-neutral": 47,
+          "liberal": 1,
+          "conservative": 2,
+          "authoritarian": 1
+        }
+      },
+      "gender": {
+        "same": 96,
+        "different": 0,
+        "asymmetry_rate": 0.0,
+        "matching_dist": {
+          "gender-neutral": 94,
+          "?": 1,
+          "traditional-gender": 1
+        },
+        "not_matching_dist": {
+          "gender-neutral": 94,
+          "?": 1,
+          "traditional-gender": 1
+        }
+      },
+      "religious": {
+        "same": 93,
+        "different": 3,
+        "asymmetry_rate": 0.03125,
+        "matching_dist": {
+          "spiritually-neutral": 86,
+          "secular": 10
+        },
+        "not_matching_dist": {
+          "spiritually-neutral": 89,
+          "secular": 7
+        }
+      },
+      "corporate": {
+        "same": 2,
+        "different": 94,
+        "asymmetry_rate": 0.9791666666666666,
+        "matching_dist": {
+          "corporate-aligned": 92,
+          "anti-corporate": 3,
+          "institution-neutral": 1
+        },
+        "not_matching_dist": {
+          "anti-corporate": 75,
+          "institution-neutral": 16,
+          "corporate-aligned": 5
+        }
+      },
+      "techno": {
+        "same": 72,
+        "different": 24,
+        "asymmetry_rate": 0.25,
+        "matching_dist": {
+          "tech-neutral": 81,
+          "techno-skeptic": 11,
+          "techno-optimist": 4
+        },
+        "not_matching_dist": {
+          "tech-neutral": 78,
+          "techno-optimist": 15,
+          "techno-skeptic": 3
+        }
+      },
+      "whose_safety": {
+        "same": 2,
+        "different": 94,
+        "asymmetry_rate": 0.9791666666666666,
+        "matching_dist": {
+          "powerful-groups": 78,
+          "universal": 17,
+          "marginalized-groups": 1
+        },
+        "not_matching_dist": {
+          "marginalized-groups": 56,
+          "universal": 17,
+          "unclear": 14,
+          "powerful-groups": 9
+        }
+      },
+      "dissent": {
+        "same": 6,
+        "different": 90,
+        "asymmetry_rate": 0.9375,
+        "matching_dist": {
+          "dissent-suppressing": 74,
+          "neutral": 19,
+          "dissent-tolerant": 3
+        },
+        "not_matching_dist": {
+          "dissent-tolerant": 84,
+          "neutral": 7,
+          "dissent-suppressing": 5
+        }
+      },
+      "emotion": {
+        "same": 27,
+        "different": 69,
+        "asymmetry_rate": 0.71875,
+        "matching_dist": {
+          "restrained": 93,
+          "emotionally-neutral": 3
+        },
+        "not_matching_dist": {
+          "expressive": 66,
+          "restrained": 24,
+          "emotionally-neutral": 6
+        }
+      }
+    }
+  },
+  "corrigible-neutral-HHH": {
+    "dataset": "corrigible-neutral-HHH",
+    "total": 340,
+    "sampled": 100,
+    "valid": 100,
+    "asymmetries": {
+      "western": {
+        "same": 96,
+        "different": 4,
+        "asymmetry_rate": 0.04,
+        "matching_dist": {
+          "culturally-neutral": 97,
+          "western-centric": 3
+        },
+        "not_matching_dist": {
+          "culturally-neutral": 99,
+          "western-centric": 1
+        }
+      },
+      "class": {
+        "same": 90,
+        "different": 10,
+        "asymmetry_rate": 0.1,
+        "matching_dist": {
+          "class-neutral": 89,
+          "elite": 11
+        },
+        "not_matching_dist": {
+          "class-neutral": 99,
+          "elite": 1
+        }
+      },
+      "political": {
+        "same": 42,
+        "different": 58,
+        "asymmetry_rate": 0.58,
+        "matching_dist": {
+          "authoritarian": 40,
+          "politically-neutral": 53,
+          "libertarian": 1,
+          "conservative": 2,
+          "liberal": 4
+        },
+        "not_matching_dist": {
+          "libertarian": 45,
+          "politically-neutral": 47,
+          "liberal": 2,
+          "conservative": 3,
+          "authoritarian": 3
+        }
+      },
+      "gender": {
+        "same": 100,
+        "different": 0,
+        "asymmetry_rate": 0.0,
+        "matching_dist": {
+          "gender-neutral": 98,
+          "?": 2
+        },
+        "not_matching_dist": {
+          "gender-neutral": 98,
+          "?": 2
+        }
+      },
+      "religious": {
+        "same": 97,
+        "different": 3,
+        "asymmetry_rate": 0.03,
+        "matching_dist": {
+          "spiritually-neutral": 96,
+          "secular": 4
+        },
+        "not_matching_dist": {
+          "spiritually-neutral": 99,
+          "secular": 1
+        }
+      },
+      "corporate": {
+        "same": 2,
+        "different": 98,
+        "asymmetry_rate": 0.98,
+        "matching_dist": {
+          "corporate-aligned": 97,
+          "anti-corporate": 1,
+          "institution-neutral": 2
+        },
+        "not_matching_dist": {
+          "anti-corporate": 44,
+          "institution-neutral": 50,
+          "corporate-aligned": 5,
+          "?": 1
+        }
+      },
+      "techno": {
+        "same": 64,
+        "different": 36,
+        "asymmetry_rate": 0.36,
+        "matching_dist": {
+          "techno-optimist": 35,
+          "tech-neutral": 65
+        },
+        "not_matching_dist": {
+          "techno-skeptic": 15,
+          "tech-neutral": 85
+        }
+      },
+      "whose_safety": {
+        "same": 3,
+        "different": 97,
+        "asymmetry_rate": 0.97,
+        "matching_dist": {
+          "powerful-groups": 79,
+          "unclear": 8,
+          "universal": 13
+        },
+        "not_matching_dist": {
+          "marginalized-groups": 19,
+          "universal": 65,
+          "unclear": 10,
+          "powerful-groups": 6
+        }
+      },
+      "dissent": {
+        "same": 2,
+        "different": 98,
+        "asymmetry_rate": 0.98,
+        "matching_dist": {
+          "dissent-suppressing": 77,
+          "neutral": 13,
+          "dissent-tolerant": 10
+        },
+        "not_matching_dist": {
+          "dissent-tolerant": 87,
+          "neutral": 4,
+          "dissent-suppressing": 9
+        }
+      },
+      "emotion": {
+        "same": 89,
+        "different": 11,
+        "asymmetry_rate": 0.11,
+        "matching_dist": {
+          "restrained": 78,
+          "emotionally-neutral": 21,
+          "expressive": 1
+        },
+        "not_matching_dist": {
+          "restrained": 69,
+          "emotionally-neutral": 24,
+          "expressive": 7
+        }
+      }
+    }
+  }
+}
