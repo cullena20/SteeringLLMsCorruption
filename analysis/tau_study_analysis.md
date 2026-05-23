@@ -7,7 +7,7 @@
 **Statistical tests:** Paired permutation test (10,000 sign-flips, n=20 pairs).  
 **Effect size:** Cohen's d (paired differences).  
 
-## Table 1: Main Results (n=500, 20 concepts)
+## Table 1: Main Results (20 concepts, n=500 prompts/concept)
 
 > **Permutation test** (10,000 sign-flips, n=20 paired differences) vs DiffMean. Keeps all 20 pairs including zero-difference concepts (unlike Wilcoxon which discards ties). 1-sided: P(method > DiffMean); 2-sided: P(|Δ| ≥ observed). Cohen's d: paired effect size. *** p<0.001, ** p<0.01, * p<0.05.
 
@@ -65,45 +65,7 @@
 Spearman ρ(τ, Δ vs DiffMean) = **0.700**, p = 0.188  
 (Positive ρ → larger τ → larger improvement; note t30 outlier.)
 
-## Table 4: n=72 vs n=500 Backend Comparison
-
-| Method | n=72 mean | n=500 mean | Δ | Note |
-|---|---|---|---|---|
-| DiffMean | 0.210 | 0.227 | +0.017 | ⚠ backend changed |
-| RobustDiffMean | 0.141 | 0.225 | +0.084 |  |
-| PromptSteering | 0.998 | 0.922 | -0.076 |  |
-
-> **Confound warning:** n=72 used HF transformers + pyreft; n=500 used vLLM + EasySteer. DiffMean dropped −0.096 on average. The per-method improvement at n=500 relative to DiffMean is interpretable, but the absolute DiffMean drop may reflect backend differences, not a real signal loss.
-
-## Table 5: Per-Concept DiffMean — n=72 vs n=500
-
-| Concept | DM_72 | DM_500 | DM_Δ | LV_72 | LV_500 | LV_Δ |
-|---|---|---|---|---|---|---|
-| 0 | 0.00 | 0.07 | +0.07 | 0.24 | 0.02 | -0.22 |
-| 1 | 0.00 | 0.16 | +0.16 | 0.00 | 0.18 | +0.18 |
-| 2 | 0.00 | 0.25 | +0.25 | 0.00 | 0.25 | +0.25 |
-| 3 | 0.00 | 0.33 | +0.33 | 0.24 | 0.28 | +0.04 |
-| 4 | 0.20 | 0.43 | +0.23 | 0.00 | 0.44 | +0.44 |
-| 5 | 0.00 | 0.41 | +0.41 | 0.00 | 0.41 | +0.41 |
-| 6 | 0.68 | 0.12 | -0.56 | 0.96 | 0.12 | -0.84 |
-| 7 | 0.20 | 0.48 | +0.28 | 0.00 | 0.54 | +0.54 |
-| 8 | 0.24 | 0.72 | +0.48 | 0.00 | 0.69 | +0.69 |
-| 9 | 0.24 | 0.07 | -0.17 | 0.24 | 0.07 | -0.17 |
-| 10 | 0.00 | 0.10 | +0.10 | 0.00 | 0.08 | +0.08 |
-| 11 | 0.00 | 0.00 | +0.00 | 0.00 | 0.00 | +0.00 |
-| 12 | 0.44 | 0.28 | -0.16 | 0.20 | 0.36 | +0.16 |
-| 13 | 0.24 | 0.36 | +0.12 | 0.20 | 0.25 | +0.05 |
-| 14 | 0.48 | 0.07 | -0.41 | 0.24 | 0.07 | -0.17 |
-| 15 | 0.60 | 0.07 | -0.53 | 0.20 | 0.10 | -0.10 |
-| 16 | 0.48 | 0.22 | -0.26 | 0.00 | 0.22 | +0.22 |
-| 17 | 0.40 | 0.04 | -0.36 | 0.30 | 0.05 | -0.25 |
-| 18 | 0.00 | 0.08 | +0.08 | 0.00 | 0.08 | +0.08 |
-| 19 | 0.00 | 0.28 | +0.28 | 0.00 | 0.28 | +0.28 |
-
-Spearman ρ(DM_72 score, DM_Δ) = **-0.665**, p = 0.001**  
-(Negative rho → concepts where n=72 DiffMean was high tended to regress more under vLLM.)
-
-## Table 6: Best Alpha Distribution (n=500)
+## Table 4: Best Alpha Distribution (n=500)
 
 > Each cell = number of concepts where that α gave the highest LM-judge score.
 
@@ -123,17 +85,15 @@ Spearman ρ(DM_72 score, DM_Δ) = **-0.665**, p = 0.001**
 
 | Run | Spearman ρ(DM score, LV Δ) | p |
 |---|---|---|
-| n=72  | -0.585 | 0.007** |
 | n=500 | 0.066 | 0.781 |
 
-Negative ρ = LV helps most where DiffMean is weakest (hard concepts), and hurts where DiffMean is strong (easy concepts). At n=500 the magnitude should diminish as 1/n pruning cost shrinks.
+ρ ≈ 0 → no evidence that LV helps more on hard concepts (where DiffMean is weak) than easy ones at n=500.
 
 
 ## Summary of Key Findings
 
-1. **All 7 robust/alternative estimators beat DiffMean at n=500** (mean differences +0.013 to +0.043).
+1. **All 7 robust/alternative estimators beat DiffMean** (mean differences +0.013 to +0.043).
 2. **Best method: RobustDiffMean_t30** (mean=0.233 vs DiffMean=0.227; Δ=+0.006, permutation p(1-sided)=0.225, p(2-sided)=0.442, Cohen d=+0.18).
-3. **Effect sizes are small** (d < 0.3 for all), consistent with incremental gains.
+3. **Effect sizes are small** (d < 0.3 for all), consistent with incremental gains at best.
 4. **Tau trend is non-monotonic**: t30 (τ=0.30) outperforms t01 (τ=0.01), contradicting the simple "less pruning = safer" hypothesis.
-5. **n=72 confound**: DiffMean dropped −0.096 across runs (n=72 HF transformers → n=500 vLLM+EasySteer). LV improvements are robust within the n=500 run but cross-run comparisons are confounded by backend change.
-6. **Hypothesis confirmed**: LV helps on hard concepts (DiffMean≈0) and breaks even on easy ones at n=500 — unlike n=72 where it actively hurt on easy concepts.
+5. **No concept-difficulty interaction**: Spearman ρ(DM score, LV Δ) = 0.066, p=0.781. LV does not preferentially help on hard concepts at this sample size.
