@@ -1,6 +1,17 @@
 # AxBench Tau Study: Statistical Analysis
 
-**Study:** Robust mean estimation for activation steering vectors.  
+## Experimental Setup
+
+The concepts used in this study come from AxBench's concept500 benchmark, which is derived from SAEBench. Each concept corresponds to a sparse autoencoder (SAE) feature from GemmaScope's 16k-wide residual-stream SAE at layer 20 of Gemma-2-2B-IT. The concept descriptions (e.g. "references to rental services and associated equipment") are natural-language explanations of what each SAE feature detects, sourced from Neuronpedia. For each concept, the dataset contains 72 positive examples — instruction-formatted text passages that strongly activate the corresponding SAE feature — and 216 shared negative examples drawn from general instruction data (AlpacaEval).
+
+To select a representative and interpretable subset of 20 concepts for this study, we first ran DiffMean on all 500 concept500 concepts and computed each concept's AUC-ROC separability: how well the DiffMean steering direction separates positive from negative examples in activation space. Concepts were ranked by AUC-ROC, and we selected the 20 at the median (ranks 240–260 out of 500, AUC-ROC ≈ 0.765). This avoids both trivially easy concepts (where every method scores well) and pathologically hard ones (where nothing works), giving a more informative comparison between methods.
+
+For each of the 20 selected concepts, we trained steering vectors using 9 methods: DiffMean, MeanOfDiffs, QUEDiffMean, and five variants of RobustDiffMean at trimming fractions τ ∈ {0.01, 0.05, 0.10, 0.20, 0.30}. Training used the 72 positive and 216 negative examples per concept. Steering vectors are unit-direction vectors; the effective intervention magnitude is `max_act × α × direction`, where `max_act` is the per-concept maximum activation value computed from the training set during a latent inference pass. This normalization ensures that α is interpretable as a fraction of the concept's natural activation scale, comparable across concepts and methods.
+
+For evaluation, we steered Gemma-2-2B-IT on 50 AlpacaEval prompts per concept at 8 values of α ∈ {0.2, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0}, for a total of 400 steered completions per concept per method. Each completion was scored by GPT-4o-mini acting as an LM judge across three dimensions: concept relevance (does the output exhibit the target concept?), instruction relevance (does it still follow the original prompt?), and fluency. The final LM-judge score for a concept–method pair is the best score across all 8 α values. Comparisons between methods are made on this best-α score.
+
+Statistical significance is assessed with a paired permutation test (10,000 sign-flips, n=20 concept pairs) comparing each method against DiffMean as baseline. Effect sizes are Cohen's d on the paired differences.
+
 **Model:** Gemma-2-2B-IT, Layer 20 (GemmaScope-res-16k).  
 **Concepts:** 20 median-AUC-ROC concepts from concept500 (ranks 240-260/500).  
 **Run:** 9 methods × 20 concepts × 8 α values, LM-judge scored.  
